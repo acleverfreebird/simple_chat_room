@@ -1,0 +1,26 @@
+# Python compiler caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Databases
+instance/
+cs_server_go/instance/
+*.db
+
+# Build and Dist directories (PyInstaller, etc.)
+build/
+dist/
+*.exe
+
+# Static uploads
+static/uploads/
+cs_server_go/static/
+
+# Large ZIP backups
+*.zip
+backup.zip
+
+# VS Code directory (optional, but good to ignore user-specific settings)
+.vscode/

@@ -1,0 +1,33 @@
+{
+    "HOST": "0.0.0.0",
+    "PORT": 9000,
+    "HTTP_PORT": 8080,
+    "ADMIN_PORT": 8081,
+    "ADMIN_PASSWORD": "admin123",
+    "ALLOWED_EXTENSIONS": [
+        "png",
+        "jpg",
+        "jpeg",
+        "gif",
+        "pdf",
+        "doc",
+        "docx",
+        "xls",
+        "xlsx",
+        "txt",
+        "zip",
+        "rar",
+        "md"
+    ],
+    "SENSITIVE_WORDS": [
+        "妈",
+        "傻逼",
+        "fuck"
+    ],
+    "MAX_FILE_SIZE": 104857600,
+    "MAX_WS_SIZE": 157286400,
+    "ALLOWED_ADMIN_IPS": [
+        "127.0.0.1",
+        "::1"
+    ]
+}
