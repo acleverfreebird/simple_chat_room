@@ -31,48 +31,93 @@ if getattr(sys, 'frozen', False):
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-LOG_FILE = os.path.join(BASE_DIR, 'server.log')
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+LATEST_LOG_FILE = os.path.join(LOGS_DIR, 'latest.log')
 
-# 清空旧的日志文件
-try:
-    if os.path.exists(LOG_FILE):
-        os.remove(LOG_FILE)
-except Exception:
-    pass
 
-class LogRedirector:
-    def __init__(self, original_stream, file_path, prefix=""):
+def _safe_log_filename(dt: datetime) -> str:
+    return dt.strftime('%Y-%m-%d_%H-%M-%S.log')
+
+
+def _rotate_latest_log():
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    if not os.path.exists(LATEST_LOG_FILE):
+        return
+
+    try:
+        last_mtime = datetime.fromtimestamp(os.path.getmtime(LATEST_LOG_FILE))
+    except Exception:
+        last_mtime = datetime.now()
+
+    archived_name = _safe_log_filename(last_mtime)
+    archived_path = os.path.join(LOGS_DIR, archived_name)
+    suffix = 1
+    while os.path.exists(archived_path):
+        archived_name = archived_name.replace('.log', f'_{suffix}.log')
+        archived_path = os.path.join(LOGS_DIR, archived_name)
+        suffix += 1
+
+    try:
+        os.replace(LATEST_LOG_FILE, archived_path)
+    except Exception:
+        pass
+
+
+class ChatRoomLogger:
+    def __init__(self, original_stream, file_path, level='INFO', thread_name='Server thread', echo=True):
         self.original_stream = original_stream
         self.file_path = file_path
-        self.prefix = prefix
+        self.level = level
+        self.thread_name = thread_name
+        self.echo = echo
         self.buffer = []
         self.lock = threading.Lock()
 
+    def _format_line(self, line: str) -> str:
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        return f'[{timestamp}] [{self.thread_name}/{self.level}]: {line}'
+
+    def _write_line(self, line: str):
+        if not line.strip():
+            return
+
+        formatted = self._format_line(line.rstrip('\r'))
+        if self.echo:
+            self.original_stream.write(formatted + '\n')
+            self.original_stream.flush()
+
+        try:
+            with open(self.file_path, 'a', encoding='utf-8') as f:
+                f.write(formatted + '\n')
+        except Exception:
+            pass
+
     def write(self, data):
-        self.original_stream.write(data)
-        self.original_stream.flush()
-        
+        if not data:
+            return
+
         with self.lock:
             self.buffer.append(data)
-            if '\n' in data:
-                joined = ''.join(self.buffer)
-                lines = joined.split('\n')
-                for line in lines[:-1]:
-                    if line.strip():
-                        ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        try:
-                            with open(self.file_path, 'a', encoding='utf-8') as f:
-                                f.write(f"[{ts}] {self.prefix}{line}\n")
-                        except Exception:
-                            pass
-                self.buffer = [lines[-1]]
+            joined = ''.join(self.buffer)
+            lines = joined.split('\n')
+            for line in lines[:-1]:
+                self._write_line(line)
+            self.buffer = [lines[-1]]
 
     def flush(self):
+        with self.lock:
+            if self.buffer and self.buffer[0].strip():
+                self._write_line(self.buffer[0])
+            self.buffer = []
         self.original_stream.flush()
 
+
+_rotate_latest_log()
+os.makedirs(LOGS_DIR, exist_ok=True)
+
 # 开始日志重定向
-sys.stdout = LogRedirector(sys.stdout, LOG_FILE)
-sys.stderr = LogRedirector(sys.stderr, LOG_FILE, prefix="[ERROR] ")
+sys.stdout = ChatRoomLogger(sys.stdout, LATEST_LOG_FILE, level='INFO', thread_name='Server thread')
+sys.stderr = ChatRoomLogger(sys.stderr, LATEST_LOG_FILE, level='ERROR', thread_name='Server thread')
 
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
 STATIC_FOLDER = BASE_DIR  # 项目根目录，这样 /static/uploads/ 路径正确
@@ -214,6 +259,29 @@ def make_response(msg_type: str, data: dict, seq: int = 0) -> str:
         'seq': seq,
         'ts': datetime.now(timezone.utc).isoformat()
     }, ensure_ascii=False)
+
+
+LEVEL_INFO = 'INFO'
+LEVEL_WARN = 'WARN'
+LEVEL_ERROR = 'ERROR'
+LEVEL_AUDIT = 'AUDIT'
+LEVEL_CHAT = 'CHAT'
+LEVEL_NET = 'NET'
+LEVEL_HTTP = 'HTTP'
+LEVEL_ADMIN = 'ADMIN'
+LEVEL_SYSTEM = 'SYSTEM'
+
+
+def server_log(message: str, level: str = LEVEL_INFO, component: str = 'Server thread'):
+    print(f'[{component}/{level}] {message}')
+
+
+def format_audit_details(details) -> str:
+    if isinstance(details, dict):
+        return ', '.join(f'{k}={v}' for k, v in details.items())
+    if details is None:
+        return ''
+    return str(details)
 
 
 def check_rate_limit(user_id: int, action: str, max_count: int, window_sec: int) -> bool:
@@ -415,9 +483,15 @@ def check_muted(user: User) -> bool:
 
 def log_audit(user_id, ip, action, details=''):
     """记录审计日志"""
-    log = AuditLog(user_id=user_id, ip_address=ip, action=action, details=details)
+    detail_text = format_audit_details(details)
+    log = AuditLog(user_id=user_id, ip_address=ip, action=action, details=detail_text)
     db.session.add(log)
     db.session.commit()
+
+    actor = f'user_id={user_id}' if user_id is not None else 'system'
+    remote = ip or 'unknown-ip'
+    suffix = f' | {detail_text}' if detail_text else ''
+    server_log(f'[Audit] action={action} actor={actor} ip={remote}{suffix}', LEVEL_AUDIT, 'Audit thread')
 
 
 def require_admin(user: User) -> 'str | None':
@@ -1283,8 +1357,9 @@ async def broadcast_to_all(message: str, exclude: int = None):
         except Exception:
             dead.append(uid)
     for uid in dead:
-        online_connections.pop(uid, None)
-        ws_to_user.pop(online_connections.get(uid), None)
+        dead_conn = online_connections.pop(uid, None)
+        if dead_conn:
+            ws_to_user.pop(dead_conn, None)
 
 
 async def broadcast_to_users(user_ids: set, message: str):
@@ -1302,7 +1377,8 @@ async def broadcast_to_users(user_ids: set, message: str):
 # ========== 主连接处理 ==========
 async def handle_connection(ws):
     """处理单个WebSocket连接的生命周期"""
-    print(f'[连接] 新连接来自 {ws.remote_address}')
+    remote = ws.remote_address if ws.remote_address else 'unknown'
+    server_log(f'Accepted websocket connection from {remote}', LEVEL_NET, 'Netty IO #1')
     try:
         async for raw_message in ws:
             try:
@@ -1315,18 +1391,20 @@ async def handle_connection(ws):
                 if handler:
                     await handler(ws, data, seq)
                 else:
+                    server_log(f'Unknown message type received: {msg_type}', LEVEL_WARN, 'Packet Handler')
                     await ws.send(make_response('error', {'msg': f'未知消息类型: {msg_type}'}))
 
             except json.JSONDecodeError:
+                server_log('Received malformed JSON payload from client', LEVEL_WARN, 'Packet Handler')
                 await ws.send(make_response('error', {'msg': '无效的JSON格式'}))
             except Exception as e:
-                print(f'[错误] 处理消息异常: {e}')
+                server_log(f'Unhandled exception while processing websocket message: {e}', LEVEL_ERROR, 'Packet Handler')
                 try:
                     await ws.send(make_response('error', {'msg': '服务器内部错误'}))
                 except Exception:
                     pass
     except websockets.exceptions.ConnectionClosed:
-        pass
+        server_log(f'Connection closed by peer: {remote}', LEVEL_NET, 'Netty IO #1')
     finally:
         # 清理连接
         user_id = ws_to_user.pop(ws, None)
@@ -1335,7 +1413,7 @@ async def handle_connection(ws):
             if old_ws == ws:
                 # 通知其他用户下线
                 await broadcast_to_all(make_response('user_offline', {'user_id': user_id}))
-                print(f'[断开] 用户 {user_id} 下线')
+                server_log(f'User {user_id} disconnected and presence broadcast completed', LEVEL_NET, 'Netty IO #1')
 
 
 async def main():
@@ -1347,14 +1425,16 @@ async def main():
     # 启动管理面板 HTTP 服务（后台线程）
     _start_admin_server()
 
-    print(f'╔════════════════════════════════════════════╗')
-    print(f'║  C/S 聊天室服务器启动                        ║')
-    print(f'║  WebSocket: ws://{HOST}:{PORT}                ║')
-    print(f'║  HTTP文件:  http://{HOST}:{HTTP_PORT}            ║')
-    print(f'║  管理面板:  http://{HOST}:{ADMIN_PORT}            ║')
-    print(f'╚════════════════════════════════════════════╝')
+    server_log('=========================================', LEVEL_SYSTEM, 'Bootstrap')
+    server_log('C/S 聊天室服务器启动中...', LEVEL_SYSTEM, 'Bootstrap')
+    server_log(f'WebSocket endpoint listening at ws://{HOST}:{PORT}', LEVEL_SYSTEM, 'Bootstrap')
+    server_log(f'Static HTTP endpoint listening at http://{HOST}:{HTTP_PORT}', LEVEL_SYSTEM, 'Bootstrap')
+    server_log(f'Admin panel endpoint listening at http://{HOST}:{ADMIN_PORT}', LEVEL_SYSTEM, 'Bootstrap')
+    server_log(f'Latest log file: {LATEST_LOG_FILE}', LEVEL_SYSTEM, 'Bootstrap')
+    server_log('=========================================', LEVEL_SYSTEM, 'Bootstrap')
 
     async with websockets.serve(handle_connection, HOST, PORT, max_size=MAX_WS_SIZE):
+        server_log('WebSocket server event loop is now accepting clients', LEVEL_SYSTEM, 'Bootstrap')
         await asyncio.Future()  # 永远运行
 
 
@@ -1369,12 +1449,12 @@ def _start_http_server():
             super().__init__(*args, directory=STATIC_FOLDER, **kwargs)
 
         def log_message(self, format, *args):
-            pass  # 静默日志
+            server_log(format % args, LEVEL_HTTP, 'Static HTTP')
 
     server = HTTPServer(('0.0.0.0', HTTP_PORT), StaticHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    print(f'[HTTP] 静态文件服务已启动: http://0.0.0.0:{HTTP_PORT}')
+    server_log(f'Static file server started at http://0.0.0.0:{HTTP_PORT}', LEVEL_HTTP, 'Static HTTP')
 
 
 def _start_admin_server():
@@ -1392,7 +1472,7 @@ def _start_admin_server():
         """管理面板 HTTP 处理器"""
 
         def log_message(self, format, *args):
-            pass  # 静默日志
+            server_log(format % args, LEVEL_HTTP, 'Admin HTTP')
 
         def _send_json(self, data, status=200):
             body = json.dumps(data, ensure_ascii=False, default=str).encode('utf-8')
@@ -1433,12 +1513,7 @@ def _start_admin_server():
             parsed = urllib.parse.urlparse(self.path)
             path = parsed.path
 
-            if path == '/log':
-                self._serve_log_page()
-            elif path == '/api/logs':
-                with app.app_context():
-                    self._serve_logs_api()
-            elif path == '/' or path == '/admin':
+            if path == '/' or path == '/admin':
                 self._serve_admin_page()
             elif path.startswith('/api/admin/'):
                 self._handle_api_get(parsed)
@@ -1467,47 +1542,6 @@ def _start_admin_server():
                 self.wfile.write(content)
             else:
                 self.send_error(404, 'admin.html not found')
-
-        def _serve_log_page(self):
-            """提供日志查看器 HTML 页面"""
-            html_path = os.path.join(TEMPLATES_DIR, 'log.html')
-            if os.path.exists(html_path):
-                with open(html_path, 'rb') as f:
-                    content = f.read()
-                self.send_response(200)
-                self.send_header('Content-Type', 'text/html; charset=utf-8')
-                self.send_header('Content-Length', str(len(content)))
-                self.end_headers()
-                self.wfile.write(content)
-            else:
-                self.send_error(404, 'log.html not found')
-
-        def _serve_logs_api(self):
-            """提供日志内容 API"""
-            if os.path.exists(LOG_FILE):
-                try:
-                    with open(LOG_FILE, 'r', encoding='utf-8', errors='ignore') as f:
-                        logs = f.read()
-                except Exception as e:
-                    logs = f"Error reading log file: {e}"
-            else:
-                logs = "No logs recorded yet."
-            
-            try:
-                online_users = len(online_connections)
-                total_messages = Message.query.count()
-            except Exception:
-                online_users = 0
-                total_messages = 0
-
-            self._send_json({
-                'status': 'success',
-                'logs': logs,
-                'stats': {
-                    'online_users': online_users,
-                    'total_messages': total_messages
-                }
-            })
 
         # ========== GET API ==========
         def _handle_api_get(self, parsed):
@@ -1694,7 +1728,7 @@ def _start_admin_server():
             self._send_json({'status': 'success', 'msg': '服务器正在关闭，所有连接将断开。'})
             
             def do_shutdown():
-                print("[SUPER_ADMIN] 收到关机指令，正在关闭服务器...")
+                server_log('收到超级管理员关机指令，服务器即将退出', LEVEL_ADMIN, 'Admin Control')
                 os._exit(0)
                 
             import threading
@@ -2150,7 +2184,7 @@ def _start_admin_server():
     server = HTTPServer(('0.0.0.0', ADMIN_PORT), AdminHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    print(f'[ADMIN] 管理面板已启动: http://0.0.0.0:{ADMIN_PORT}')
+    server_log(f'Admin panel server started at http://0.0.0.0:{ADMIN_PORT}', LEVEL_ADMIN, 'Admin HTTP')
 
 
 def _format_file_size(size):
@@ -2166,6 +2200,6 @@ if __name__ == '__main__':
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n[服务器] 正在关闭...")
+        server_log('接收到 KeyboardInterrupt，服务器正在关闭', LEVEL_SYSTEM, 'Bootstrap')
     except asyncio.CancelledError:
         pass
