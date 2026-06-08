@@ -1,0 +1,114 @@
+name: Build, Check and Release
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  spell-check:
+    name: Spell check on dev
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install spell checker
+        run: python -m pip install --upgrade pip codespell
+
+      - name: Run codespell
+        run: >-
+          codespell .
+          --skip=".git,build,dist,__pycache__,logs,instance,static/uploads,*.db,*.exe,*.zip"
+          --ignore-words-list="crate"
+
+  build:
+    name: Build Windows executables
+    runs-on: windows-latest
+    needs: spell-check
+    if: always() && (github.ref == 'refs/heads/main' || (github.ref == 'refs/heads/dev' && needs.spell-check.result == 'success'))
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller flask flask-sqlalchemy flask-bcrypt websockets pillow
+
+      - name: Syntax check
+        shell: pwsh
+        run: |
+          python -m py_compile cs_server.py cs_client.py models.py download_server.py
+
+      - name: Build server executable
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --name cs_server --add-data "templates;templates" --add-data "static;static" --add-data "server_config.json;." cs_server.py
+
+      - name: Build client executable
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed --name cs_client --add-data "client_config.json;." cs_client.py
+
+      - name: Prepare release package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item dist\cs_server.exe release\cs_server.exe
+          Copy-Item dist\cs_client.exe release\cs_client.exe
+          Copy-Item server_config.json release\server_config.json
+          Copy-Item client_config.json release\client_config.json
+          Copy-Item README.md release\README.md
+          Copy-Item templates release\templates -Recurse
+          Copy-Item static release\static -Recurse
+          Compress-Archive -Path release\* -DestinationPath chatroom-windows-${{ github.ref_name }}-${{ github.run_number }}.zip -Force
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatroom-windows-${{ github.ref_name }}-${{ github.run_number }}
+          path: |
+            release/cs_server.exe
+            release/cs_client.exe
+            release/server_config.json
+            release/client_config.json
+            release/templates/**
+            release/static/**
+            chatroom-windows-${{ github.ref_name }}-${{ github.run_number }}.zip
+
+      - name: Create GitHub Release on main
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}-${{ github.sha }}
+          name: ChatRoom v${{ github.run_number }}
+          body: |
+            自动发布版本。
+
+            - 分支：${{ github.ref_name }}
+            - 提交：${{ github.sha }}
+            - 包含：cs_server.exe、cs_client.exe、配置文件、模板静态资源和压缩包
+          files: |
+            release/cs_server.exe
+            release/cs_client.exe
+            chatroom-windows-${{ github.ref_name }}-${{ github.run_number }}.zip
