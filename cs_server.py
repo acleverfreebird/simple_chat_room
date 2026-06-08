@@ -120,7 +120,8 @@ sys.stdout = ChatRoomLogger(sys.stdout, LATEST_LOG_FILE, level='INFO', thread_na
 sys.stderr = ChatRoomLogger(sys.stderr, LATEST_LOG_FILE, level='ERROR', thread_name='Server thread')
 
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
-STATIC_FOLDER = BASE_DIR  # 项目根目录，这样 /static/uploads/ 路径正确
+STATIC_FOLDER = BASE_DIR  # 管理面板模板等项目资源的根目录
+UPLOAD_URL_PREFIX = '/static/uploads/'
 CONFIG_FILE = os.path.join(BASE_DIR, 'server_config.json')
 
 def load_server_config():
@@ -1406,11 +1407,13 @@ async def handle_connection(ws):
     except websockets.exceptions.ConnectionClosed:
         server_log(f'Connection closed by peer: {remote}', LEVEL_NET, 'Netty IO #1')
     finally:
-        # 清理连接
+        # 清理连接：仅当前 websocket 仍是该用户的在线连接时才移除在线状态。
+        # 避免同一账号重连后，旧连接关闭误删新连接，导致在线状态异常。
         user_id = ws_to_user.pop(ws, None)
         if user_id:
-            old_ws = online_connections.pop(user_id, None)
-            if old_ws == ws:
+            current_ws = online_connections.get(user_id)
+            if current_ws == ws:
+                online_connections.pop(user_id, None)
                 # 通知其他用户下线
                 await broadcast_to_all(make_response('user_offline', {'user_id': user_id}))
                 server_log(f'User {user_id} disconnected and presence broadcast completed', LEVEL_NET, 'Netty IO #1')
@@ -1439,22 +1442,68 @@ async def main():
 
 
 def _start_http_server():
-    """在后台线程启动 HTTP 静态文件服务器"""
+    """在后台线程启动 HTTP 文件下载服务器，仅允许访问上传目录中的文件。"""
     import threading
-    from http.server import HTTPServer, SimpleHTTPRequestHandler
-    import functools
+    import mimetypes
+    import urllib.parse
+    from http.server import HTTPServer, BaseHTTPRequestHandler
 
-    class StaticHandler(SimpleHTTPRequestHandler):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, directory=STATIC_FOLDER, **kwargs)
+    class UploadOnlyHandler(BaseHTTPRequestHandler):
+        """只暴露 /static/uploads/<filename>，避免泄露项目根目录文件。"""
 
         def log_message(self, format, *args):
             server_log(format % args, LEVEL_HTTP, 'Static HTTP')
 
-    server = HTTPServer(('0.0.0.0', HTTP_PORT), StaticHandler)
+        def do_GET(self):
+            self._serve_upload_file()
+
+        def do_HEAD(self):
+            self._serve_upload_file(send_body=False)
+
+        def _serve_upload_file(self, send_body=True):
+            parsed = urllib.parse.urlparse(self.path)
+            path = urllib.parse.unquote(parsed.path)
+
+            if not path.startswith(UPLOAD_URL_PREFIX):
+                self.send_error(404, 'File not found')
+                return
+
+            filename = path[len(UPLOAD_URL_PREFIX):]
+            if not filename or '/' in filename or '\\' in filename:
+                self.send_error(404, 'File not found')
+                return
+
+            safe_name = os.path.basename(filename)
+            file_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, safe_name))
+            upload_root = os.path.abspath(UPLOAD_FOLDER)
+            if file_path != os.path.join(upload_root, safe_name):
+                self.send_error(403, 'Forbidden')
+                return
+
+            if not os.path.isfile(file_path):
+                self.send_error(404, 'File not found')
+                return
+
+            content_type = mimetypes.guess_type(file_path)[0] or 'application/octet-stream'
+            file_size = os.path.getsize(file_path)
+            self.send_response(200)
+            self.send_header('Content-Type', content_type)
+            self.send_header('Content-Length', str(file_size))
+            self.send_header('Cache-Control', 'private, max-age=3600')
+            self.end_headers()
+
+            if send_body:
+                with open(file_path, 'rb') as f:
+                    while True:
+                        chunk = f.read(64 * 1024)
+                        if not chunk:
+                            break
+                        self.wfile.write(chunk)
+
+    server = HTTPServer(('0.0.0.0', HTTP_PORT), UploadOnlyHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    server_log(f'Static file server started at http://0.0.0.0:{HTTP_PORT}', LEVEL_HTTP, 'Static HTTP')
+    server_log(f'Upload file server started at http://0.0.0.0:{HTTP_PORT}{UPLOAD_URL_PREFIX}', LEVEL_HTTP, 'Static HTTP')
 
 
 def _start_admin_server():
