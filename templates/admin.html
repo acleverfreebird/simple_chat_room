@@ -3,28 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>后台管理系统</title>
+    <title>非洲特供版酋长后台</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #6366f1; --primary-light: #eef2ff; --primary-dark: #4f46e5;
-            --primary-glow: rgba(99,102,241,.15);
-            --danger: #ef4444; --danger-light: #fef2f2; --danger-dark: #dc2626;
-            --warning: #f59e0b; --warning-light: #fffbeb; --warning-dark: #d97706;
-            --success: #10b981; --success-light: #ecfdf5; --success-dark: #059669;
-            --info: #3b82f6; --info-light: #eff6ff; --info-dark: #2563eb;
-            --purple: #8b5cf6; --purple-light: #f5f3ff;
-            --text: #1e293b; --text-secondary: #64748b; --text-muted: #94a3b8;
-            --border: #e2e8f0; --border-light: #f1f5f9;
-            --bg: #f8fafc; --card-bg: #fff;
-            --sidebar-bg: linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #3730a3 100%);
-            --shadow-xs: 0 1px 2px rgba(0,0,0,.04);
-            --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-            --shadow-md: 0 4px 6px -1px rgba(0,0,0,.07), 0 2px 4px -2px rgba(0,0,0,.05);
-            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.04);
-            --shadow-xl: 0 20px 25px -5px rgba(0,0,0,.08), 0 8px 10px -6px rgba(0,0,0,.04);
-            --shadow-primary: 0 4px 14px rgba(99,102,241,.25);
+            --primary: #c47f17; --primary-light: #fff3d6; --primary-dark: #8a4f0f;
+            --primary-glow: rgba(196,127,23,.18);
+            --danger: #c92a2a; --danger-light: #fff1e6; --danger-dark: #8f1d1d;
+            --warning: #f59e0b; --warning-light: #fff7d6; --warning-dark: #b66a00;
+            --success: #2f9e44; --success-light: #edf7df; --success-dark: #1f6f2e;
+            --info: #7a3f12; --info-light: #fff0c2; --info-dark: #4c2608;
+            --purple: #7a5a2e; --purple-light: #f7dfad;
+            --text: #2b1a0f; --text-secondary: #7a5a2e; --text-muted: #a67c43;
+            --border: #e0b86a; --border-light: #fff3d6;
+            --bg: #f7dfad; --card-bg: #fff8e6;
+            --sidebar-bg: linear-gradient(180deg, #1f1209 0%, #2b1a0f 45%, #7a3f12 100%);
+            --shadow-xs: 0 1px 2px rgba(43,26,15,.06);
+            --shadow-sm: 0 1px 3px rgba(43,26,15,.08), 0 1px 2px rgba(43,26,15,.05);
+            --shadow-md: 0 4px 6px -1px rgba(43,26,15,.12), 0 2px 4px -2px rgba(43,26,15,.08);
+            --shadow-lg: 0 10px 15px -3px rgba(43,26,15,.14), 0 4px 6px -4px rgba(43,26,15,.08);
+            --shadow-xl: 0 20px 25px -5px rgba(43,26,15,.14), 0 8px 10px -6px rgba(43,26,15,.08);
+            --shadow-primary: 0 4px 14px rgba(196,127,23,.28);
             --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-xl: 20px;
             --transition: .2s cubic-bezier(.4,0,.2,1);
         }
@@ -44,19 +44,19 @@
         .sidebar{width:240px;flex-shrink:0;background:var(--sidebar-bg);padding:0;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:transform .3s ease}
         .sidebar-header{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,.08)}
         .sidebar-brand{display:flex;align-items:center;gap:12px}
-        .sidebar-logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#818cf8,#6366f1);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 12px rgba(99,102,241,.4)}
+        .sidebar-logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#f5b942,#8a4f0f);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 12px rgba(196,127,23,.4)}
         .sidebar-title{color:#fff;font-size:16px;font-weight:700;letter-spacing:-.3px}
         .sidebar-subtitle{color:rgba(255,255,255,.45);font-size:11px;font-weight:500;margin-top:2px;letter-spacing:.5px;text-transform:uppercase}
         .sidebar-nav{flex:1;padding:12px 12px;overflow-y:auto}
         .nav-section{margin-bottom:8px}
-        .nav-section-title{color:rgba(255,255,255,.35);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:12px 12px 6px;user-select:none}
+        .nav-section-title{color:rgba(255,255,255,.35);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:12px 12px 6px;-webkit-user-select:none;user-select:none}
         .nav-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:500;color:rgba(255,255,255,.6);transition:var(--transition);margin-bottom:2px;position:relative;overflow:hidden}
         .nav-item::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(99,102,241,.3),rgba(139,92,246,.2));opacity:0;transition:var(--transition);border-radius:10px}
         .nav-item:hover{color:rgba(255,255,255,.9)}
         .nav-item:hover::before{opacity:1}
         .nav-item.active{color:#fff;font-weight:600}
         .nav-item.active::before{opacity:1}
-        .nav-item.active::after{content:'';position:absolute;right:0;top:50%;transform:translateY(-50%);width:3px;height:20px;background:#818cf8;border-radius:3px 0 0 3px}
+        .nav-item.active::after{content:'';position:absolute;right:0;top:50%;transform:translateY(-50%);width:3px;height:20px;background:#f5b942;border-radius:3px 0 0 3px}
         .nav-icon{font-size:18px;width:24px;text-align:center;position:relative;z-index:1}
         .nav-label{position:relative;z-index:1}
         .nav-count{margin-left:auto;background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;position:relative;z-index:1;min-width:20px;text-align:center}
@@ -314,20 +314,20 @@
 <body>
 
 <!-- Login Overlay -->
-<div id="login-overlay" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1e1b4b,#312e81);z-index:9999;justify-content:center;align-items:center">
+<div id="login-overlay" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1f1209,#7a3f12);z-index:9999;justify-content:center;align-items:center">
     <div style="background:#fff;border-radius:20px;padding:40px;width:380px;max-width:90vw;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
         <div style="font-size:40px;margin-bottom:16px">&#128274;</div>
-        <h2 style="margin:0 0 8px;font-size:20px;color:#1e293b">管理面板登录</h2>
-        <p style="color:#64748b;font-size:13px;margin:0 0 24px">仅限本机或授权 IP 访问</p>
-        <input type="text" id="login-username" placeholder="请输入管理员用户名 (如 admin)" value="admin"
+        <h2 style="margin:0 0 8px;font-size:20px;color:#2b1a0f">酋长议事厅登录</h2>
+        <p style="color:#7a5a2e;font-size:13px;margin:0 0 24px">仅限本机或授权部落 IP 访问</p>
+        <input type="text" id="login-username" placeholder="请输入酋长用户名 (如 admin)" value="admin"
             style="width:100%;padding:12px 16px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;outline:none;margin-bottom:12px;box-sizing:border-box"
             onkeydown="if(event.key==='Enter')doAdminLogin()">
-        <input type="password" id="login-pwd" placeholder="请输入管理员密码"
+        <input type="password" id="login-pwd" placeholder="请输入酋长密码"
             style="width:100%;padding:12px 16px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;outline:none;margin-bottom:8px;box-sizing:border-box"
             onkeydown="if(event.key==='Enter')doAdminLogin()">
         <div id="login-err" style="color:#ef4444;font-size:12px;min-height:20px;margin-bottom:16px"></div>
         <button onclick="doAdminLogin()"
-            style="width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer">
+            style="width:100%;padding:12px;background:linear-gradient(135deg,#c47f17,#7a3f12);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer">
             登 录
         </button>
     </div>
@@ -349,10 +349,10 @@
 <nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <div class="sidebar-brand">
-            <div class="sidebar-logo">&#9670;</div>
+            <div class="sidebar-logo">&#128081;</div>
             <div>
-                <div class="sidebar-title">管理面板</div>
-                <div class="sidebar-subtitle">Control Center</div>
+                <div class="sidebar-title">酋长议事厅</div>
+                <div class="sidebar-subtitle">Africa Special</div>
             </div>
         </div>
     </div>
@@ -364,7 +364,7 @@
             </div>
         </div>
         <div class="nav-section">
-            <div class="nav-section-title">管理</div>
+            <div class="nav-section-title">酋长治理</div>
             <div class="nav-item" data-tab="messages" onclick="switchTab('messages')">
                 <span class="nav-icon">&#128172;</span><span class="nav-label">消息管理</span>
                 <span class="nav-count" id="msg-count-badge"></span>
@@ -397,7 +397,7 @@
         </div>
     </div>
     <div class="sidebar-footer">
-        <a href="/" onclick="return true">&#8592; 返回聊天室</a>
+        <a href="/" onclick="return true">&#8592; 返回部落广场</a>
         <a href="#" onclick="doLogout();return false" style="color:rgba(255,255,255,.5);margin-top:4px">&#128274; 退出登录</a>
     </div>
 </nav>
@@ -423,7 +423,7 @@
 <!-- ============ DASHBOARD ============ -->
 <div class="tab-content active" id="tab-dashboard">
     <div class="auto-refresh-bar">
-        <label class="toggle-switch"><input type="checkbox" id="auto-refresh-toggle" onchange="toggleAutoRefresh(this.checked)"><span class="toggle-slider"></span></label>
+        <label class="toggle-switch" title="自动刷新"><input type="checkbox" id="auto-refresh-toggle" aria-label="自动刷新" onchange="toggleAutoRefresh(this.checked)"><span class="toggle-slider"></span></label>
         <span>自动刷新</span><span style="color:var(--text-muted)" id="auto-refresh-status">(已关闭)</span>
     </div>
     <div class="quick-stats" id="quick-stats"></div>
@@ -433,7 +433,7 @@
         <div class="card-body" style="padding: 20px 24px;">
             <div class="form-group" style="margin: 0 0 16px;">
                 <label class="form-label" style="margin-bottom: 6px;">公告内容</label>
-                <textarea class="form-textarea" id="broadcast-content" placeholder="输入广播消息内容（例如：服务器维护通知、管理员公告等），将实时推送到所有在线聊天室客户端系统消息中..." style="min-height: 80px;"></textarea>
+                <textarea class="form-textarea" id="broadcast-content" placeholder="输入酋长公告内容（例如：部落维护通知、酋长公告等），将实时推送到所有在线聊天室客户端系统消息中..." style="min-height: 80px;"></textarea>
             </div>
             <div style="display: flex; justify-content: flex-end;">
                 <button class="btn btn-primary" onclick="sendSystemBroadcast()">&#128226; 发送广播</button>
@@ -600,9 +600,9 @@
             </div>
 
             <div class="form-group super-admin-only" style="margin-top:24px; border-top: 1px solid var(--border-light); padding-top: 20px; display: none;">
-                <label class="form-label">管理面板 IP 访问控制 <small style="color:var(--text-muted);font-weight:400">(回车添加，点击 x 删除，为空则仅限 127.0.0.1/::1)</small></label>
+                <label class="form-label">酋长议事厅 IP 访问控制 <small style="color:var(--text-muted);font-weight:400">(回车添加，点击 x 删除，为空则仅限 127.0.0.1/::1)</small></label>
                 <div class="tag-container" id="ip-tags" style="background: #f0fdf4; border-color: #bbf7d0;"></div>
-                <input type="text" class="tag-input" id="new-ip-input" placeholder="输入允许访问管理面板的 IP (例如 192.168.1.100)，按回车添加...">
+                <input type="text" class="tag-input" id="new-ip-input" placeholder="输入允许访问酋长议事厅的 IP (例如 192.168.1.100)，按回车添加...">
             </div>
 
             <div class="action-bar">
@@ -625,11 +625,11 @@
             </div>
         </div>
         <div class="card-body" style="padding:20px; background:#1e1e2e; color:#a6e3a1; font-family:'Courier New', Courier, monospace;">
-            <div id="terminal-output" style="height:450px; overflow-y:auto; border:1px solid #313244; background:#11111b; padding:15px; border-radius:8px; margin-bottom:15px; font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-all; color:#a6e3a1;">[系统信息] 欢迎进入 Web 终端。您拥有超级管理员权限，可以直接执行系统命令。
+            <div id="terminal-output" style="height:450px; overflow-y:auto; border:1px solid #313244; background:#11111b; padding:15px; border-radius:8px; margin-bottom:15px; font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-all; color:#a6e3a1;">[系统信息] 欢迎进入 Web 终端。您拥有超级酋长权限，可以直接执行系统命令。
 当前工作目录: <span id="terminal-cwd">--</span>
 请输入指令...</div>
             <div style="display:flex; align-items:center; background:#11111b; border:1px solid #313244; border-radius:8px; padding:10px 14px; gap:10px;">
-                <span style="color:#f38ba8; font-weight:700; user-select:none;">$</span>
+                <span style="color:#f38ba8; font-weight:700; -webkit-user-select:none; user-select:none;">$</span>
                 <input type="text" id="terminal-input" placeholder="输入命令，如 dir, ipconfig, type server_config.json... (按回车执行)" 
                        style="flex:1; background:transparent; border:none; outline:none; color:#cdd6f4; font-family:inherit; font-size:13px; padding:0;"
                        onkeydown="handleTerminalKey(event)">
@@ -940,10 +940,10 @@ function updateRoleBadge() {
     var badge = document.getElementById('admin-role-badge');
     if (badge) {
         if (currentAdminRole === 'super_admin') {
-            badge.textContent = '超级管理员';
+            badge.textContent = '超级酋长';
             badge.style.background = 'linear-gradient(135deg, var(--danger), var(--warning))';
         } else {
-            badge.textContent = '管理员';
+            badge.textContent = '酋长';
             badge.style.background = 'linear-gradient(135deg, var(--primary), var(--purple))';
         }
     }
@@ -1182,16 +1182,16 @@ function renderUserTable(){
     emptyEl.style.display='none';
     tbody.innerHTML=filteredUsers.map(function(u){
         var sb=u.is_banned?'<span class="badge badge-banned">封禁</span>':(u.is_muted?'<span class="badge badge-muted">禁言</span>':'<span class="badge badge-normal">正常</span>');
-        var rb=u.is_admin?'<span class="badge badge-admin">管理员</span>':'<span class="badge badge-user">普通</span>';
+        var rb=u.is_admin?'<span class="badge badge-admin">酋长</span>':'<span class="badge badge-user">族人</span>';
         var fpShort=(u.device_fingerprint||'\u2014').substring(0,10)+'...';
         var nameEsc=escHtml(u.username||u.ip_address||'未知');
 
         var acts='<div style="display:flex;gap:5px;flex-wrap:wrap">';
         if(currentAdminRole==='super_admin'){
             if(u.is_admin){
-                acts+='<button class="btn btn-warning btn-xs" onclick="setUserAdmin('+u.id+',false)">取消管理员</button>';
+                acts+='<button class="btn btn-warning btn-xs" onclick="setUserAdmin('+u.id+',false)">取消酋长</button>';
             }else{
-                acts+='<button class="btn btn-primary btn-xs" onclick="setUserAdmin('+u.id+',true)">设为管理员</button>';
+                acts+='<button class="btn btn-primary btn-xs" onclick="setUserAdmin('+u.id+',true)">封为酋长</button>';
             }
         }
         if(!u.is_admin){
@@ -1216,8 +1216,8 @@ function renderUserTable(){
     }).join('');
 }
 function setUserAdmin(uid,isAdmin){
-    var title=isAdmin?'提升为管理员':'取消管理员权限';
-    var text=isAdmin?'确认要将该用户提升为管理员吗？\n提升后该用户将拥有管理员权限！':'确认要取消该用户的管理员权限吗？\n取消后该用户将恢复为普通用户。';
+    var title=isAdmin?'册封为酋长':'取消酋长权限';
+    var text=isAdmin?'确认要将该用户册封为酋长吗？\n册封后该用户将拥有酋长权限，可以自由发言！':'确认要取消该用户的酋长权限吗？\n取消后该用户将恢复为族人，只能发送“耶！”。';
     showConfirm(title,text,'确认',function(){
         fetch('/api/admin/user/set_admin',{
             method:'POST',
@@ -1249,7 +1249,7 @@ function showUserDetail(uid){
     var u=null;
     for(var i=0;i<allUsers.length;i++){if(allUsers[i].id===uid){u=allUsers[i];break}}
     if(!u)return;
-    document.getElementById('detail-title').textContent='用户详情';
+    document.getElementById('detail-title').textContent='部落成员详情';
     document.getElementById('detail-subtitle').textContent=u.username||u.ip_address||'未知';
 
     var ipHistoryHtml='<span style="color:var(--text-muted);font-size:12px">无记录</span>';
@@ -1274,7 +1274,7 @@ function showUserDetail(uid){
         +'<div class="detail-label">&#128226; 账号状态</div><div class="detail-value">'+(u.is_banned?'<span class="badge badge-banned">封禁中</span> '+(u.ban_reason?'原因: '+escHtml(u.ban_reason):''):(u.is_muted?'<span class="badge badge-muted">禁言中</span>':'<span class="badge badge-normal">正常</span>'))+(u.ban_until?'<br><span style="font-size:11px;color:var(--text-muted)">到期: '+u.ban_until+'</span>':'')+'</div>'
         +'<div class="detail-label">&#128197; 注册时间</div><div class="detail-value">'+(u.created_at||'\u2014')+'</div>'
         +'<div class="detail-label">&#9200; 最后活跃</div><div class="detail-value">'+(u.last_active||'\u2014')+'</div>'
-        +'<div class="detail-label">&#127760; 角色</div><div class="detail-value">'+(u.is_admin?'管理员 ('+escHtml(u.admin_role||'admin')+')':'普通用户')+'</div>'
+        +'<div class="detail-label">&#127760; 角色</div><div class="detail-value">'+(u.is_admin?'酋长 ('+escHtml(u.admin_role||'admin')+')':'族人（只能发送“耶！”）')+'</div>'
         +'<div class="detail-label">&#128205; IP历史</div><div class="detail-value" style="display:block">'+ipHistoryHtml+'</div>';
 
     var actionHtml='';

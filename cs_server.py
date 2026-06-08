@@ -496,11 +496,11 @@ def log_audit(user_id, ip, action, details=''):
 
 
 def require_admin(user: User) -> 'str | None':
-    """检查管理员权限，返回错误信息或None"""
+    """检查酋长权限，返回错误信息或None"""
     if user.ip_address not in WHITELISTED_IPS:
-        return '拒绝访问：仅限本机访问'
+        return '拒绝访问：仅限本机或授权部落访问'
     if not user.is_admin:
-        return '需要管理员权限'
+        return '需要酋长权限'
     return None
 
 
@@ -714,6 +714,12 @@ async def handle_send_message(ws, data: dict, seq: int):
         file_name = data.get('file_name', None)
         receiver_id = data.get('receiver_id', None)
 
+        # 非洲特供版规则：只有酋长（管理员）可以自由发言；族人只能发送固定文本“耶！”。
+        if not user.is_admin:
+            if msg_type != 'text' or file_url or file_name or content != '耶！':
+                await ws.send(make_response('error', {'msg': '只有酋长可以自由发言，族人只能高呼“耶！”', 'code': 400}, seq))
+                return
+
         if not content and msg_type == 'text':
             return
 
@@ -857,6 +863,9 @@ async def handle_upload_start(ws, data: dict, seq: int):
         if not user or not user.username:
             await ws.send(make_response('error', {'msg': '未登录'}, seq))
             return
+        if not user.is_admin:
+            await ws.send(make_response('error', {'msg': '只有酋长可以上传文件，族人只能高呼“耶！”', 'code': 400}, seq))
+            return
 
         original_name = data.get('file_name', 'unknown')
         total_chunks = data.get('total_chunks', 1)
@@ -977,6 +986,9 @@ async def handle_upload_file(ws, data: dict, seq: int):
         user = db.session.get(User, user_id)
         if not user or not user.username:
             await ws.send(make_response('error', {'msg': '未登录'}, seq))
+            return
+        if not user.is_admin:
+            await ws.send(make_response('error', {'msg': '只有酋长可以上传文件，族人只能高呼“耶！”', 'code': 400}, seq))
             return
 
         file_data_b64 = data.get('file_data', '')

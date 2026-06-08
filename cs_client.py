@@ -92,50 +92,48 @@ FONT_BADGE = ('Microsoft YaHei', 8, 'bold')
 
 # ========== 主题色 ==========
 COLORS = {
-    'nav_bg': '#2e2e2e',           # 微信最左侧导航栏背景（深黑/灰）
-    'list_bg': '#f7f7f7',          # 微信会话列表背景（浅灰）
-    'list_hover': '#ebebeb',       # 会话列表悬停背景
-    'list_active': '#e2e2e2',      # 会话列表选中背景
-    'bg_chat': '#ededed',          # 微信聊天窗口背景
-    'bg_input': '#f5f5f5',         # 微信输入区域背景
-    'text_input_bg': '#ffffff',    # 输入框背景 (纯白)
-    'green': '#07C160',            # 微信绿
-    'green_dark': '#06AD56',       # 深绿
-    'green_light': '#95EC69',      # 亮绿
-    'bubble_self': '#95EC69',      # 自己气泡背景 (微信亮绿)
-    'bubble_other': '#FFFFFF',     # 他人气泡背景 (纯白)
-    'text_primary': '#1A1A1A',     # 主文字
-    'text_secondary': '#8A8A8A',   # 次文字
-    'text_light': '#BBBBBB',       # 浅色文字
-    'text_white': '#DFE1E5',       # 白色文字
-    'border': '#e5e5e5',           # 边框色
-    'online_green': '#23C343',     # 在线状态绿
-    'unread_badge': '#FF3B30',     # 未读红点
-    'system_bg': '#dadada',        # 系统消息背景
-    'system_text': '#ffffff',      # 系统消息文字（微信是白字在灰底上）
+    'nav_bg': '#2b1a0f',           # 非洲特供版左侧木纹深棕
+    'list_bg': '#fff3d6',          # 夕阳沙地色会话列表
+    'list_hover': '#ffe3a3',       # 金色悬停
+    'list_active': '#f2c14e',      # 部落鼓金色选中
+    'bg_chat': '#f7dfad',          # 草原沙土聊天背景
+    'bg_input': '#fff0c2',         # 酋长发言席背景
+    'text_input_bg': '#fff8e6',    # 输入框背景
+    'green': '#c47f17',            # 非洲鼓铜金主色
+    'green_dark': '#8a4f0f',       # 深棕金
+    'green_light': '#f5b942',      # 夕阳亮金
+    'bubble_self': '#ffd166',      # 自己气泡背景
+    'bubble_other': '#fff8e6',     # 他人气泡背景
+    'text_primary': '#2b1a0f',     # 主文字
+    'text_secondary': '#7a5a2e',   # 次文字
+    'text_light': '#d9b46f',       # 浅色文字
+    'text_white': '#fff8e6',       # 浅金白文字
+    'border': '#e0b86a',           # 边框色
+    'online_green': '#2f9e44',     # 在线状态绿
+    'unread_badge': '#c92a2a',     # 未读红点
+    'system_bg': '#7a3f12',        # 系统消息背景
+    'system_text': '#fff8e6',      # 系统消息文字
     
     # 兼容性映射
-    'bg_dark': '#2E2E2E',
-    'bg_darker': '#242424',
-    'bg_chat': '#ededed',
-    'bg_input': '#f5f5f5',
-    'hover': '#ebebeb',
-    'selected': '#e2e2e2',
+    'bg_dark': '#2b1a0f',
+    'bg_darker': '#1f1209',
+    'hover': '#ffe3a3',
+    'selected': '#f2c14e',
 }
 
 PRESET_AVATARS = {
-    'avatar_1': {'symbol': '猫', 'bg': ('#4F46E5', '#7C3AED')}, # Cat
-    'avatar_2': {'symbol': '狗', 'bg': ('#F59E0B', '#EF4444')}, # Dog
-    'avatar_3': {'symbol': '兔', 'bg': ('#EC4899', '#F43F5E')}, # Rabbit
-    'avatar_4': {'symbol': '狐', 'bg': ('#F97316', '#F59E0B')}, # Fox
-    'avatar_5': {'symbol': '熊', 'bg': ('#3B82F6', '#60A5FA')}, # Bear
-    'avatar_6': {'symbol': '蛙', 'bg': ('#EAB308', '#F59E0B')}, # Frog
-    'avatar_7': {'symbol': '鱼', 'bg': ('#10B981', '#34D399')}, # Fish
-    'avatar_8': {'symbol': '鸟', 'bg': ('#06B6D4', '#22D3EE')}, # Bird
-    'avatar_9': {'symbol': '鸭', 'bg': ('#1E293B', '#475569')}, # Duck
-    'avatar_10': {'symbol': '猴', 'bg': ('#0284C7', '#38BDF8')}, # Monkey
-    'avatar_11': {'symbol': '猪', 'bg': ('#8B5CF6', '#A78BFA')}, # Pig
-    'avatar_12': {'symbol': '羊', 'bg': ('#D946EF', '#F472B6')}, # Sheep
+    'avatar_1': {'symbol': '狮', 'bg': ('#8a4f0f', '#f5b942')},
+    'avatar_2': {'symbol': '象', 'bg': ('#3b2f2f', '#7a5a2e')},
+    'avatar_3': {'symbol': '豹', 'bg': ('#a94f12', '#f2c14e')},
+    'avatar_4': {'symbol': '鹰', 'bg': ('#1f1209', '#c47f17')},
+    'avatar_5': {'symbol': '鼓', 'bg': ('#7a3f12', '#c92a2a')},
+    'avatar_6': {'symbol': '矛', 'bg': ('#2b1a0f', '#8a4f0f')},
+    'avatar_7': {'symbol': '火', 'bg': ('#c92a2a', '#f59f00')},
+    'avatar_8': {'symbol': '树', 'bg': ('#2f9e44', '#8a4f0f')},
+    'avatar_9': {'symbol': '日', 'bg': ('#f59f00', '#c47f17')},
+    'avatar_10': {'symbol': '猴', 'bg': ('#8a4f0f', '#2f9e44')},
+    'avatar_11': {'symbol': '斑', 'bg': ('#fff3d6', '#2b1a0f')},
+    'avatar_12': {'symbol': '酋', 'bg': ('#c47f17', '#7a3f12')},
 }
 
 def draw_gradient_round_rect(size: int, bg_colors: tuple, radius: int) -> 'Image':
@@ -734,6 +732,7 @@ class UserListItem(tk.Frame):
         is_banned = user.get('is_banned', False)
         is_muted = user.get('is_muted', False)
         is_online = user.get('is_online', False)
+        is_chief = user.get('is_admin', False)
 
         # 头像
         avatar = self._get_avatar(name, avatar_id)
@@ -752,21 +751,23 @@ class UserListItem(tk.Frame):
         self.info = tk.Frame(self, bg=bg)
         self.info.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=6)
 
-        name_fg = 'black' if not is_banned else '#ff6b6b'
-        self.name_label = tk.Label(self.info, text=name, bg=bg, fg=name_fg,
+        name_fg = COLORS['text_primary'] if not is_banned else '#ff6b6b'
+        display_name = f"👑 酋长 · {name}" if is_chief else name
+        self.name_label = tk.Label(self.info, text=display_name, bg=bg, fg=name_fg,
                               font=FONT_MAIN)
         self.name_label.pack(anchor=tk.W)
 
         presence_text = "在线" if is_online else "离线"
         status_fg = COLORS['online_green'] if is_online else COLORS['text_secondary']
+        role_text = "酋长" if is_chief else "族人"
         if is_banned:
-            status_text = f"{presence_text} · 已封禁"
+            status_text = f"{presence_text} · {role_text} · 已封禁"
             status_fg = '#ff6b6b'
         elif is_muted:
-            status_text = f"{presence_text} · 已禁言"
+            status_text = f"{presence_text} · {role_text} · 已禁言"
             status_fg = '#ffa500'
         else:
-            status_text = presence_text
+            status_text = f"{presence_text} · {role_text}"
 
         self.status_dot = tk.Label(self.info, text=f"● {status_text}", bg=bg,
                               fg=status_fg, font=FONT_SMALL)
@@ -926,7 +927,7 @@ class ProfileEditDialog(tk.Toplevel):
 class ChatApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("ChatRoom")
+        self.root.title("非洲特供聊天室")
         self.root.geometry("960x700")
         self.root.minsize(760, 520)
         self.root.configure(bg=COLORS['bg_dark'])
@@ -1018,12 +1019,12 @@ class ChatApp:
 
     # ========== 连接管理 ==========
     def _on_connect(self):
-        self.lbl_status.configure(text="Connected", fg=COLORS['online_green'])
-        self._append_system_msg("Connected to server")
+        self.lbl_status.configure(text="部落已连线", fg=COLORS['online_green'])
+        self._append_system_msg("已接入非洲特供部落服务器")
 
     def _on_disconnect(self):
-        self.lbl_status.configure(text="Reconnecting...", fg='#ffa500')
-        self._append_system_msg("Disconnected, reconnecting...")
+        self.lbl_status.configure(text="寻找部落...", fg='#ffa500')
+        self._append_system_msg("部落连接断开，正在重新寻找鼓点...")
 
     def _build_gui(self):
         # 全局样式
@@ -1091,8 +1092,8 @@ class ChatApp:
         self.sidebar_header.pack(fill=tk.X)
         self.sidebar_header.pack_propagate(False)
 
-        # 微信风格的粗体标题
-        tk.Label(self.sidebar_header, text="微信", bg=COLORS['list_bg'],
+        # 非洲特供版粗体标题
+        tk.Label(self.sidebar_header, text="非洲特供版", bg=COLORS['list_bg'],
                  fg=COLORS['text_primary'], font=('Microsoft YaHei', 13, 'bold')
                  ).pack(side=tk.LEFT, padx=12, pady=15)
 
@@ -1102,7 +1103,7 @@ class ChatApp:
         self.lbl_status.pack(side=tk.RIGHT, padx=12, pady=18)
 
         # 个人名字展示区 (紧跟在会话头部下方)
-        self.lbl_username = tk.Label(self.sidebar, text="Click to set name",
+        self.lbl_username = tk.Label(self.sidebar, text="点击登记部落名",
                                       bg=COLORS['list_bg'],
                                       fg=COLORS['text_primary'],
                                       font=FONT_BOLD,
@@ -1134,13 +1135,13 @@ class ChatApp:
         pub_info_frame = tk.Frame(pub_inner, bg=COLORS['list_active'])
         pub_info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        pub_text = tk.Label(pub_info_frame, text="公共聊天室",
+        pub_text = tk.Label(pub_info_frame, text="非洲部落广场",
                              bg=COLORS['list_active'],
                              fg=COLORS['text_primary'],
                              font=FONT_BOLD)
         pub_text.pack(anchor=tk.W)
 
-        pub_subtext = tk.Label(pub_info_frame, text="大家都在这里聊天",
+        pub_subtext = tk.Label(pub_info_frame, text="酋长发话，族人高呼耶！",
                                 bg=COLORS['list_active'],
                                 fg=COLORS['text_secondary'],
                                 font=FONT_SMALL)
@@ -1162,7 +1163,7 @@ class ChatApp:
         online_header = tk.Frame(online_section, bg=COLORS['list_bg'])
         online_header.pack(fill=tk.X, padx=12, pady=(4, 2))
 
-        tk.Label(online_header, text="用户列表", bg=COLORS['list_bg'],
+        tk.Label(online_header, text="部落成员", bg=COLORS['list_bg'],
                  fg=COLORS['text_secondary'], font=FONT_SMALL).pack(side=tk.LEFT)
         self.lbl_online_count = tk.Label(online_header, text="0",
                                           bg=COLORS['list_bg'],
@@ -1197,13 +1198,13 @@ class ChatApp:
         self.btn_back.bind('<Enter>', lambda e: self.btn_back.configure(fg=COLORS['green_dark']))
         self.btn_back.bind('<Leave>', lambda e: self.btn_back.configure(fg=COLORS['green']))
 
-        self.lbl_chat_title = tk.Label(chat_header, text="公共聊天室",
+        self.lbl_chat_title = tk.Label(chat_header, text="非洲部落广场",
                                         bg=COLORS['bg_input'],
                                         fg=COLORS['text_primary'],
                                         font=FONT_TITLE)
         self.lbl_chat_title.pack(side=tk.LEFT, padx=16, pady=15)
 
-        self.lbl_chat_status = tk.Label(chat_header, text="公开频道",
+        self.lbl_chat_status = tk.Label(chat_header, text="酋长可自由发言 · 族人只能高呼耶！",
                                          bg=COLORS['bg_input'],
                                          fg=COLORS['text_secondary'],
                                          font=FONT_SMALL)
@@ -1274,7 +1275,7 @@ class ChatApp:
 
         # 发送按钮
         self._send_active = False
-        self.btn_send = tk.Label(toolbar, text=" 发送 ",
+        self.btn_send = tk.Label(toolbar, text=" 酋长发话 ",
                                   bg='#F0F0F0', fg='#CCCCCC',
                                   font=FONT_MAIN,
                                   padx=16, pady=6, cursor='hand2')
@@ -1293,7 +1294,60 @@ class ChatApp:
         self.msg_input.bind('<KeyRelease>', self._on_input_change)
         self.msg_input.bind('<Return>', self._on_enter_press)
 
+        # 族人专用欢呼区：普通用户不显示输入框，只能点击按钮发送“耶！”
+        self.cheer_panel = tk.Frame(input_section_container, bg=COLORS['bg_input'],
+                                    highlightbackground=COLORS['border'], highlightthickness=1)
+        self.cheer_hint = tk.Label(self.cheer_panel,
+                                   text="族人席：酋长发话时，你只能用鼓点回应",
+                                   bg=COLORS['bg_input'], fg=COLORS['text_secondary'], font=FONT_SMALL)
+        self.cheer_hint.pack(fill=tk.X, padx=12, pady=(12, 4))
+        self.btn_cheer = tk.Label(self.cheer_panel, text="耶！",
+                                  bg=COLORS['green'], fg='white',
+                                  font=('Microsoft YaHei', 22, 'bold'),
+                                  padx=40, pady=18, cursor='hand2')
+        self.btn_cheer.pack(fill=tk.X, padx=24, pady=(4, 16))
+        self.btn_cheer.bind('<Button-1>', lambda e: self._send_message())
+        self.btn_cheer.bind('<Enter>', lambda e: self.btn_cheer.configure(bg=COLORS['green_dark']) if not self.is_banned and not self.is_muted else None)
+        self.btn_cheer.bind('<Leave>', lambda e: self.btn_cheer.configure(bg=COLORS['green']) if not self.is_banned and not self.is_muted else None)
+        self._apply_speech_mode()
+
+    def _is_chief(self) -> bool:
+        return bool(self.current_user and self.current_user.get('is_admin'))
+
+    def _identity_label_text(self, username: str) -> str:
+        if not username:
+            return "点击登记部落名"
+        return f"{'酋长' if self._is_chief() else '族人'} · {username}"
+
+    def _apply_speech_mode(self):
+        if not hasattr(self, 'input_box') or not hasattr(self, 'cheer_panel'):
+            return
+
+        if self.emoji_panel.winfo_ismapped():
+            self.emoji_panel.pack_forget()
+
+        if self._is_chief():
+            self.cheer_panel.pack_forget()
+            if not self.input_box.winfo_ismapped():
+                self.input_box.pack(fill=tk.BOTH, expand=True)
+            if not self.is_banned and not self.is_muted:
+                self.msg_input.configure(state=tk.NORMAL)
+            self._on_input_change()
+            return
+
+        self.input_box.pack_forget()
+        if not self.cheer_panel.winfo_ismapped():
+            self.cheer_panel.pack(fill=tk.X, expand=False)
+
+        if self.is_banned or self.is_muted:
+            self.btn_cheer.configure(text="暂不能高呼", bg='#E1E1E1', fg='#999999')
+        else:
+            self.btn_cheer.configure(text="耶！", bg=COLORS['green'], fg='white')
+
     def _on_input_change(self, event=None):
+        if not self._is_chief():
+            self._send_active = True
+            return
         content = self.msg_input.get('1.0', tk.END).strip()
         if content:
             self.btn_send.configure(bg=COLORS['green'], fg='white')
@@ -1319,11 +1373,15 @@ class ChatApp:
                 gchild.configure(bg=bg)
 
     def _insert_emoji(self, emoji):
+        if not self._is_chief():
+            return
         self.msg_input.insert(tk.INSERT, emoji)
         self.msg_input.focus_set()
         self._on_input_change()
 
     def _toggle_emoji_panel(self, event=None):
+        if not self._is_chief():
+            return
         if self.emoji_panel.winfo_ismapped():
             self.emoji_panel.pack_forget()
         else:
@@ -1347,9 +1405,10 @@ class ChatApp:
         username = user.get('username', '')
         avatar_id = user.get('avatar', 'avatar_1')
         
-        self.lbl_username.configure(text=username)
+        self.lbl_username.configure(text=self._identity_label_text(username))
         self._update_my_avatar(username, avatar_id)
-        self._append_system_msg("个人信息已成功更新")
+        self._apply_speech_mode()
+        self._append_system_msg("部落名册已更新")
 
     def _update_my_avatar(self, name: str, avatar_id: str = None):
         if HAS_PIL:
@@ -1410,20 +1469,23 @@ class ChatApp:
         username = user.get('username')
         avatar_id = user.get('avatar', 'avatar_1')
         if username:
-            self.lbl_username.configure(text=username)
+            self.lbl_username.configure(text=self._identity_label_text(username))
             self._update_my_avatar(username, avatar_id)
         else:
-            self.lbl_username.configure(text="Click to set name")
+            self.lbl_username.configure(text="点击登记部落名")
             self.root.after(500, self._set_username_dialog)
 
-        self._append_system_msg("Authentication successful")
+        self._apply_speech_mode()
+        role = "酋长" if self._is_chief() else "族人"
+        self._append_system_msg(f"身份确认成功：{role}")
 
     def _show_banned_screen(self, user):
         reason = user.get('ban_reason', 'Violation')
         until = user.get('ban_until', '')
         until_str = f"Until: {until}" if until else "Permanent"
-        self._append_system_msg(f"[BANNED] Reason: {reason}. {until_str}")
+        self._append_system_msg(f"[已逐出部落] 原因：{reason}。{until_str}")
         self.msg_input.configure(state=tk.DISABLED)
+        self._apply_speech_mode()
 
     def _on_new_message(self, data):
         msg_id = data.get('id')
@@ -1558,6 +1620,10 @@ class ChatApp:
 
     def _on_upload_result(self, data):
         if data.get('status') == 'success':
+            if not self._is_chief():
+                self._append_system_msg("只有酋长才能把文件带上广场")
+                self._pending_upload = None
+                return
             self.network.send('send_message', {
                 'content': '',
                 'msg_type': data.get('msg_type', 'file'),
@@ -1565,14 +1631,14 @@ class ChatApp:
                 'file_name': data.get('file_name'),
                 'receiver_id': self.current_target['id'] if self.current_mode == 'private' and self.current_target else None
             })
-            self._append_system_msg("File uploaded successfully")
+            self._append_system_msg("酋长贡品已送达")
         else:
-            messagebox.showerror("Upload Failed", data.get('msg', 'Unknown error'))
+            messagebox.showerror("上传失败", data.get('msg', '未知错误'))
         self._pending_upload = None
 
     def _on_upload_start_result(self, data):
         if data.get('status') != 'success':
-            messagebox.showerror("Upload Failed", data.get('msg', 'Init failed'))
+            messagebox.showerror("上传失败", data.get('msg', '初始化失败'))
             self._pending_upload = None
             return
         upload_id = data.get('upload_id')
@@ -1583,12 +1649,12 @@ class ChatApp:
 
     def _on_upload_chunk_ack(self, data):
         if data.get('status') != 'success':
-            messagebox.showerror("Upload Failed", data.get('msg', 'Chunk failed'))
+            messagebox.showerror("上传失败", data.get('msg', '分块失败'))
             self._pending_upload = None
             return
         received = data.get('received', 0)
         total = data.get('total', 1)
-        self._append_system_msg(f"Upload progress: {received}/{total}")
+        self._append_system_msg(f"贡品搬运进度：{received}/{total}")
         self._send_next_chunk()
 
     def _send_next_chunk(self):
@@ -1615,20 +1681,21 @@ class ChatApp:
             user = data.get('user', {})
             self.current_user = user
             username = user.get('username', '')
-            self.lbl_username.configure(text=username)
+            self.lbl_username.configure(text=self._identity_label_text(username))
             self._update_my_avatar(username)
-            self._append_system_msg(f"Username set: {username}")
+            self._apply_speech_mode()
+            self._append_system_msg(f"部落名已登记：{username}")
         else:
-            messagebox.showerror("Failed", data.get('msg', 'Unknown error'))
+            messagebox.showerror("失败", data.get('msg', '未知错误'))
 
     def _on_error(self, data):
-        msg = data.get('msg', 'Unknown error')
+        msg = data.get('msg', '未知错误')
         code = data.get('code', 0)
         if code == 403:
             self.is_banned = True
             self._show_banned_screen(self.current_user or {})
         else:
-            self._append_system_msg(f"[Error] {msg}")
+            self._append_system_msg(f"[部落提示] {msg}")
         self._pending_upload = None
 
     # ========== UI 操作 ==========
@@ -1791,8 +1858,8 @@ class ChatApp:
     def _switch_to_public(self):
         self.current_mode = 'public'
         self.current_target = None
-        self.lbl_chat_title.configure(text="公共聊天室")
-        self.lbl_chat_status.configure(text="公开频道")
+        self.lbl_chat_title.configure(text="非洲部落广场")
+        self.lbl_chat_status.configure(text="酋长可自由发言 · 族人只能高呼耶！")
         self.btn_back.pack_forget()
         
         self._set_pub_active_style(False)
@@ -1804,8 +1871,9 @@ class ChatApp:
             return
         self.current_mode = 'private'
         self.current_target = {'id': user['id'], 'username': user['username']}
-        self.lbl_chat_title.configure(text=f"{user['username']}")
-        self.lbl_chat_status.configure(text="私聊")
+        role_prefix = "酋长" if user.get('is_admin') else "族人"
+        self.lbl_chat_title.configure(text=f"{role_prefix} · {user['username']}")
+        self.lbl_chat_status.configure(text="部落密语 · 族人仍只能发送“耶！”")
         self.btn_back.pack(side=tk.RIGHT, padx=12)
 
         self.unread_counts.pop(user['id'], None)
@@ -1816,22 +1884,26 @@ class ChatApp:
 
     def _send_message(self):
         if self.is_banned:
-            messagebox.showwarning("Banned", "Your account is banned")
+            messagebox.showwarning("已逐出部落", "你的账号已被逐出部落")
             return
         if self.is_muted:
-            messagebox.showwarning("Muted", "You are muted")
+            messagebox.showwarning("禁声中", "你暂时不能在部落里出声")
             return
 
-        content = self.msg_input.get('1.0', tk.END).strip()
-        if not content:
-            return
+        if self._is_chief():
+            content = self.msg_input.get('1.0', tk.END).strip()
+            if not content:
+                return
+        else:
+            content = "耶！"
 
         payload = {'content': content, 'msg_type': 'text'}
         if self.current_mode == 'private' and self.current_target:
             payload['receiver_id'] = self.current_target['id']
 
         self.network.send('send_message', payload)
-        self.msg_input.delete('1.0', tk.END)
+        if self._is_chief():
+            self.msg_input.delete('1.0', tk.END)
         self._on_input_change()
 
     def _on_enter_press(self, event):
@@ -1840,12 +1912,15 @@ class ChatApp:
             return 'break'
 
     def _upload_file(self):
+        if not self._is_chief():
+            messagebox.showwarning("酋长专属", "只有酋长才能上传文件，族人只能高呼“耶！”")
+            return
         if self.is_banned or self.is_muted:
-            messagebox.showwarning("Restricted", "You cannot upload files")
+            messagebox.showwarning("受限", "你现在不能上传文件")
             return
 
         filepath = filedialog.askopenfilename(
-            title="Select File",
+            title="选择贡品文件",
             filetypes=[
                 ("Images", "*.png *.jpg *.jpeg *.gif"),
                 ("Documents", "*.pdf *.doc *.docx *.txt"),
@@ -1862,22 +1937,22 @@ class ChatApp:
         allowed = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx',
                     'xls', 'xlsx', 'txt', 'zip', 'rar'}
         if ext not in allowed:
-            messagebox.showerror("Error", f"File type not allowed: {ext}")
+            messagebox.showerror("错误", f"不允许的贡品类型: {ext}")
             return
 
         file_size = os.path.getsize(filepath)
         if file_size > 100 * 1024 * 1024:
-            messagebox.showerror("Error", "File size exceeds 100MB")
+            messagebox.showerror("错误", "贡品不能超过100MB")
             return
 
-        self._append_system_msg(f"Uploading: {filename} ({file_size // 1024}KB)")
+        self._append_system_msg(f"正在搬运贡品: {filename} ({file_size // 1024}KB)")
 
         try:
             with open(filepath, 'rb') as f:
                 raw_bytes = f.read()
             file_data_b64 = base64.b64encode(raw_bytes).decode('utf-8')
         except Exception as e:
-            messagebox.showerror("Read Failed", str(e))
+            messagebox.showerror("读取失败", str(e))
             return
 
         CHUNK_THRESHOLD = 512 * 1024
