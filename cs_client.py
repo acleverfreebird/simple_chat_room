@@ -733,6 +733,7 @@ class UserListItem(tk.Frame):
         avatar_id = user.get('avatar', 'avatar_1')
         is_banned = user.get('is_banned', False)
         is_muted = user.get('is_muted', False)
+        is_online = user.get('is_online', False)
 
         # 头像
         avatar = self._get_avatar(name, avatar_id)
@@ -756,15 +757,16 @@ class UserListItem(tk.Frame):
                               font=FONT_MAIN)
         self.name_label.pack(anchor=tk.W)
 
+        presence_text = "在线" if is_online else "离线"
+        status_fg = COLORS['online_green'] if is_online else COLORS['text_secondary']
         if is_banned:
-            status_text = "已封禁"
+            status_text = f"{presence_text} · 已封禁"
             status_fg = '#ff6b6b'
         elif is_muted:
-            status_text = "已禁言"
+            status_text = f"{presence_text} · 已禁言"
             status_fg = '#ffa500'
         else:
-            status_text = "在线"
-            status_fg = COLORS['online_green']
+            status_text = presence_text
 
         self.status_dot = tk.Label(self.info, text=f"● {status_text}", bg=bg,
                               fg=status_fg, font=FONT_SMALL)
@@ -1160,7 +1162,7 @@ class ChatApp:
         online_header = tk.Frame(online_section, bg=COLORS['list_bg'])
         online_header.pack(fill=tk.X, padx=12, pady=(4, 2))
 
-        tk.Label(online_header, text="在线好友", bg=COLORS['list_bg'],
+        tk.Label(online_header, text="用户列表", bg=COLORS['list_bg'],
                  fg=COLORS['text_secondary'], font=FONT_SMALL).pack(side=tk.LEFT)
         self.lbl_online_count = tk.Label(online_header, text="0",
                                           bg=COLORS['list_bg'],
@@ -1519,22 +1521,30 @@ class ChatApp:
 
     def _on_user_list(self, data):
         users = data.get('users', [])
-        if self.current_user:
-            self.online_users = [u for u in users if u.get('id') != self.current_user.get('id')]
-        else:
-            self.online_users = users
+        current_user_id = self.current_user.get('id') if self.current_user else None
+        self.online_users = [u for u in users if u.get('id') != current_user_id]
+        self.online_users.sort(key=lambda u: (not u.get('is_online', False), u.get('username', '')))
         self._refresh_user_list()
 
     def _on_user_online(self, data):
         user = data.get('user', {})
         if self.current_user and user.get('id') != self.current_user.get('id'):
-            if not any(u.get('id') == user.get('id') for u in self.online_users):
+            user['is_online'] = True
+            existing_index = next((i for i, u in enumerate(self.online_users) if u.get('id') == user.get('id')), None)
+            if existing_index is None:
                 self.online_users.append(user)
-                self._refresh_user_list()
+            else:
+                self.online_users[existing_index] = user
+            self.online_users.sort(key=lambda u: (not u.get('is_online', False), u.get('username', '')))
+            self._refresh_user_list()
 
     def _on_user_offline(self, data):
         user_id = data.get('user_id')
-        self.online_users = [u for u in self.online_users if u.get('id') != user_id]
+        for user in self.online_users:
+            if user.get('id') == user_id:
+                user['is_online'] = False
+                break
+        self.online_users.sort(key=lambda u: (not u.get('is_online', False), u.get('username', '')))
         self._refresh_user_list()
 
     def _on_msg_recalled(self, data):
@@ -1758,7 +1768,8 @@ class ChatApp:
         for w in self.user_list_frame.winfo_children():
             w.destroy()
 
-        self.lbl_online_count.configure(text=str(len(self.online_users)))
+        online_count = sum(1 for u in self.online_users if u.get('is_online', False))
+        self.lbl_online_count.configure(text=f"{online_count}/{len(self.online_users)}在线")
 
         for u in self.online_users:
             uid = u.get('id')
