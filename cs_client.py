@@ -84,43 +84,46 @@ RECONNECT_MAX_DELAY = 30
 MAX_WS_SIZE = 150 * 1024 * 1024
 
 # ========== 字体常量 ==========
-FONT_MAIN = ('Microsoft YaHei', 10)
-FONT_BOLD = ('Microsoft YaHei', 10, 'bold')
-FONT_TITLE = ('Microsoft YaHei', 14, 'bold')
-FONT_SMALL = ('Microsoft YaHei', 9)
-FONT_BADGE = ('Microsoft YaHei', 8, 'bold')
+FONT_MAIN = ('Microsoft YaHei UI', 10)
+FONT_BOLD = ('Microsoft YaHei UI', 10, 'bold')
+FONT_TITLE = ('Microsoft YaHei UI', 13, 'bold')
+FONT_SMALL = ('Microsoft YaHei UI', 9)
+FONT_BADGE = ('Microsoft YaHei UI', 8, 'bold')
+FONT_NAV = ('Segoe UI Emoji', 16)
 
-# ========== 主题色 ==========
+# ========== 主题色（现代聊天 UI） ==========
 COLORS = {
-    'nav_bg': '#2e2e2e',           # 微信最左侧导航栏背景（深黑/灰）
-    'list_bg': '#f7f7f7',          # 微信会话列表背景（浅灰）
-    'list_hover': '#ebebeb',       # 会话列表悬停背景
-    'list_active': '#e2e2e2',      # 会话列表选中背景
-    'bg_chat': '#ededed',          # 微信聊天窗口背景
-    'bg_input': '#f5f5f5',         # 微信输入区域背景
-    'text_input_bg': '#ffffff',    # 输入框背景 (纯白)
-    'green': '#07C160',            # 微信绿
+    'nav_bg': '#1e1e2e',           # 左侧导航（深色）
+    'nav_active': '#313244',       # 导航激活态
+    'list_bg': '#f5f6f8',          # 会话列表背景
+    'list_hover': '#eceef2',       # 会话列表悬停
+    'list_active': '#e4e7ed',      # 会话列表选中
+    'bg_chat': '#f0f2f5',          # 聊天窗口背景
+    'bg_input': '#ffffff',         # 输入区域背景
+    'text_input_bg': '#ffffff',    # 输入框/表情面板
+    'header_bg': '#fafbfc',        # 顶栏背景
+    'green': '#07C160',            # 主色绿
     'green_dark': '#06AD56',       # 深绿
     'green_light': '#95EC69',      # 亮绿
-    'bubble_self': '#95EC69',      # 自己气泡背景 (微信亮绿)
-    'bubble_other': '#FFFFFF',     # 他人气泡背景 (纯白)
-    'text_primary': '#1A1A1A',     # 主文字
-    'text_secondary': '#8A8A8A',   # 次文字
-    'text_light': '#BBBBBB',       # 浅色文字
-    'text_white': '#DFE1E5',       # 白色文字
-    'border': '#e5e5e5',           # 边框色
-    'online_green': '#23C343',     # 在线状态绿
-    'unread_badge': '#FF3B30',     # 未读红点
-    'system_bg': '#dadada',        # 系统消息背景
-    'system_text': '#ffffff',      # 系统消息文字（微信是白字在灰底上）
-    
-    # 兼容性映射
-    'bg_dark': '#2E2E2E',
-    'bg_darker': '#242424',
-    'bg_chat': '#ededed',
-    'bg_input': '#f5f5f5',
-    'hover': '#ebebeb',
-    'selected': '#e2e2e2',
+    'bubble_self': '#95EC69',      # 自己气泡
+    'bubble_other': '#FFFFFF',     # 他人气泡
+    'text_primary': '#1f2329',     # 主文字
+    'text_secondary': '#8f959e',   # 次文字
+    'text_light': '#c0c4cc',       # 浅色文字
+    'text_white': '#e8e8ed',       # 导航栏文字
+    'border': '#e8e8ed',           # 边框
+    'online_green': '#00b578',     # 在线绿
+    'unread_badge': '#ff4d4f',     # 未读红
+    'system_bg': '#d9dde3',        # 系统消息底
+    'system_text': '#ffffff',      # 系统消息字
+    'accent': '#6366f1',           # 强调色（与 Web 后台一致）
+    'accent_soft': '#eef2ff',
+
+    # 兼容映射
+    'bg_dark': '#1e1e2e',
+    'bg_darker': '#181825',
+    'hover': '#eceef2',
+    'selected': '#e4e7ed',
 }
 
 PRESET_AVATARS = {
@@ -581,7 +584,7 @@ class MessageBubble(tk.Frame):
 
         # 主行：头像 + 气泡
         row = tk.Frame(self, bg=bg)
-        row.pack(fill=tk.X, padx=16, pady=6)
+        row.pack(fill=tk.X, padx=18, pady=7)
 
         bubble_bg = COLORS['bubble_self'] if is_self else COLORS['bubble_other']
         text_fg = COLORS['text_primary']
@@ -711,15 +714,15 @@ class MessageBubble(tk.Frame):
 
 # ========== 系统消息组件 ==========
 class SystemMessage(tk.Frame):
-    """系统消息（居中灰色）"""
+    """系统消息（居中胶囊样式）"""
     def __init__(self, parent, text: str, **kwargs):
         bg = kwargs.pop('bg', COLORS['bg_chat'])
         super().__init__(parent, bg=bg, **kwargs)
 
         label = tk.Label(self, text=text, bg=COLORS['system_bg'],
                          fg=COLORS['system_text'], font=FONT_SMALL,
-                         padx=16, pady=4, relief=tk.FLAT)
-        label.pack(pady=8)
+                         padx=14, pady=5, relief=tk.FLAT)
+        label.pack(pady=10)
 
 
 # ========== 用户列表项 ==========
@@ -752,19 +755,19 @@ class UserListItem(tk.Frame):
         self.info = tk.Frame(self, bg=bg)
         self.info.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=6)
 
-        name_fg = 'black' if not is_banned else '#ff6b6b'
+        name_fg = COLORS['text_primary'] if not is_banned else '#ff4d4f'
         self.name_label = tk.Label(self.info, text=name, bg=bg, fg=name_fg,
-                              font=FONT_MAIN)
+                              font=FONT_BOLD)
         self.name_label.pack(anchor=tk.W)
 
         presence_text = "在线" if is_online else "离线"
         status_fg = COLORS['online_green'] if is_online else COLORS['text_secondary']
         if is_banned:
             status_text = f"{presence_text} · 已封禁"
-            status_fg = '#ff6b6b'
+            status_fg = '#ff4d4f'
         elif is_muted:
             status_text = f"{presence_text} · 已禁言"
-            status_fg = '#ffa500'
+            status_fg = '#fa8c16'
         else:
             status_text = presence_text
 
@@ -775,10 +778,11 @@ class UserListItem(tk.Frame):
         # 未读徽标
         self.badge = None
         if unread > 0:
-            self.badge = tk.Label(self, text=str(unread), bg=COLORS['unread_badge'],
+            badge_text = '99+' if unread > 99 else str(unread)
+            self.badge = tk.Label(self, text=badge_text, bg=COLORS['unread_badge'],
                              fg='white', font=FONT_BADGE,
-                             padx=5, pady=0)
-            self.badge.pack(side=tk.RIGHT, padx=8)
+                             padx=6, pady=1)
+            self.badge.pack(side=tk.RIGHT, padx=10)
 
         # 绑定 hover
         self.default_bg = bg
@@ -820,9 +824,9 @@ class ProfileEditDialog(tk.Toplevel):
     def __init__(self, parent, current_username, current_avatar, on_save_cb):
         super().__init__(parent)
         self.title("个人信息")
-        self.geometry("400x530")
+        self.geometry("420x540")
         self.resizable(False, False)
-        self.configure(bg='white')
+        self.configure(bg='#ffffff')
         self.transient(parent)
         self.grab_set()
         
@@ -835,67 +839,71 @@ class ProfileEditDialog(tk.Toplevel):
         ph = parent.winfo_height()
         px = parent.winfo_rootx()
         py = parent.winfo_rooty()
-        x = px + (pw - 400) // 2
-        y = py + (ph - 530) // 2
+        x = px + (pw - 420) // 2
+        y = py + (ph - 540) // 2
         self.geometry(f"+{x}+{y}")
         
         # Header
-        header = tk.Frame(self, bg=COLORS['green'], height=60)
+        header = tk.Frame(self, bg=COLORS['nav_bg'], height=64)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
-        tk.Label(header, text="修改个人资料", bg=COLORS['green'], fg='white', font=('Microsoft YaHei', 12, 'bold')).pack(pady=15)
+        tk.Label(header, text="修改个人资料", bg=COLORS['nav_bg'], fg='white',
+                 font=('Microsoft YaHei UI', 13, 'bold')).pack(pady=18)
         
-        # Actions at bottom (packed at root level to prevent squeezing)
-        actions = tk.Frame(self, bg='white', padx=24, pady=12)
+        # Actions at bottom
+        actions = tk.Frame(self, bg='#ffffff', padx=24, pady=14)
         actions.pack(fill=tk.X, side=tk.BOTTOM)
+        tk.Frame(actions, bg=COLORS['border'], height=1).pack(fill=tk.X, side=tk.TOP, pady=(0, 12))
         
-        btn_cancel = tk.Button(actions, text="取消", bg='#F0F0F0', fg=COLORS['text_primary'], font=FONT_BOLD, relief=tk.FLAT, padx=20, pady=6, cursor='hand2', command=self.destroy)
+        btn_cancel = tk.Button(actions, text="取消", bg='#f2f3f5', fg=COLORS['text_primary'],
+                               font=FONT_BOLD, relief=tk.FLAT, padx=22, pady=7, cursor='hand2',
+                               activebackground='#e5e6eb', command=self.destroy)
         btn_cancel.pack(side=tk.LEFT)
         
-        btn_save = tk.Button(actions, text="保存", bg=COLORS['green'], fg='white', font=FONT_BOLD, relief=tk.FLAT, padx=20, pady=6, cursor='hand2', command=self._on_save)
+        btn_save = tk.Button(actions, text="保存", bg=COLORS['green'], fg='white',
+                             font=FONT_BOLD, relief=tk.FLAT, padx=22, pady=7, cursor='hand2',
+                             activebackground=COLORS['green_dark'], command=self._on_save)
         btn_save.pack(side=tk.RIGHT)
         
         # Content in the middle
-        content = tk.Frame(self, bg='white', padx=24, pady=16)
+        content = tk.Frame(self, bg='#ffffff', padx=28, pady=20)
         content.pack(fill=tk.BOTH, expand=True)
         
         # Username edit
-        tk.Label(content, text="用户名", bg='white', fg=COLORS['text_secondary'], font=FONT_SMALL).pack(anchor=tk.W)
+        tk.Label(content, text="用户名", bg='#ffffff', fg=COLORS['text_secondary'],
+                 font=FONT_SMALL).pack(anchor=tk.W)
         self.ent_username = ttk.Entry(content, font=FONT_MAIN)
-        self.ent_username.pack(fill=tk.X, pady=(5, 12))
+        self.ent_username.pack(fill=tk.X, pady=(6, 16), ipady=4)
         self.ent_username.insert(0, current_username or '')
         
         # Avatar Selection
-        tk.Label(content, text="选择头像", bg='white', fg=COLORS['text_secondary'], font=FONT_SMALL).pack(anchor=tk.W)
+        tk.Label(content, text="选择头像", bg='#ffffff', fg=COLORS['text_secondary'],
+                 font=FONT_SMALL).pack(anchor=tk.W)
         
         # Avatar Grid
-        grid_frame = tk.Frame(content, bg='white')
-        grid_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
+        grid_frame = tk.Frame(content, bg='#ffffff')
+        grid_frame.pack(fill=tk.BOTH, expand=True, pady=(8, 0))
         
         self.avatar_buttons = {}
         self.avatar_images = {}  # Prevent GC
         
-        # 4 columns, 3 rows
         cols = 4
         for idx, (avatar_id, info) in enumerate(PRESET_AVATARS.items()):
             r = idx // cols
             c = idx % cols
             
-            # Generate the avatar image
-            img = make_preset_avatar(avatar_id, size=48)
+            img = make_preset_avatar(avatar_id, size=52)
             self.avatar_images[avatar_id] = img
             
-            # We create a frame that acts as a button with a border
-            btn_frame = tk.Frame(grid_frame, bg='white', padx=2, pady=2)
+            btn_frame = tk.Frame(grid_frame, bg='#f5f6f8', padx=4, pady=4)
             btn_frame.grid(row=r, column=c, padx=6, pady=6)
             
-            lbl = tk.Label(btn_frame, image=img, bg='white', cursor='hand2')
+            lbl = tk.Label(btn_frame, image=img, bg='#f5f6f8', cursor='hand2')
             lbl.pack()
             
-            # Bind events
             lbl.bind('<Button-1>', lambda e, aid=avatar_id: self._select_avatar(aid))
             
-            self.avatar_buttons[avatar_id] = btn_frame
+            self.avatar_buttons[avatar_id] = (btn_frame, lbl)
             
         self._select_avatar(self.selected_avatar)
         
@@ -903,12 +911,15 @@ class ProfileEditDialog(tk.Toplevel):
     def _select_avatar(self, avatar_id):
         # Deselect old
         if self.selected_avatar in self.avatar_buttons:
-            self.avatar_buttons[self.selected_avatar].configure(bg='white')
+            frame, lbl = self.avatar_buttons[self.selected_avatar]
+            frame.configure(bg='#f5f6f8')
+            lbl.configure(bg='#f5f6f8')
         
         self.selected_avatar = avatar_id
-        # Select new (highlight with WeChat green)
         if avatar_id in self.avatar_buttons:
-            self.avatar_buttons[avatar_id].configure(bg=COLORS['green'])
+            frame, lbl = self.avatar_buttons[avatar_id]
+            frame.configure(bg=COLORS['green'])
+            lbl.configure(bg=COLORS['green'])
             
     def _on_save(self):
         username = self.ent_username.get().strip()
@@ -927,9 +938,9 @@ class ChatApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("ChatRoom")
-        self.root.geometry("960x700")
-        self.root.minsize(760, 520)
-        self.root.configure(bg=COLORS['bg_dark'])
+        self.root.geometry("1020x720")
+        self.root.minsize(800, 540)
+        self.root.configure(bg=COLORS['nav_bg'])
 
         # 尝试设置窗口图标
         self._set_window_icon()
@@ -1000,7 +1011,7 @@ class ChatApp:
             except Exception:
                 new_http = DEFAULT_HTTP_SERVER
                 
-            self.lbl_status.configure(text="Reconnecting...", fg='#ffa500')
+            self.lbl_status.configure(text="● 重连中", fg='#fa8c16')
             self.network.reconnect_with_new_url(new_url)
             self._http_server = new_http
             save_client_config(new_url, new_http)
@@ -1018,12 +1029,12 @@ class ChatApp:
 
     # ========== 连接管理 ==========
     def _on_connect(self):
-        self.lbl_status.configure(text="Connected", fg=COLORS['online_green'])
-        self._append_system_msg("Connected to server")
+        self.lbl_status.configure(text="● 已连接", fg=COLORS['online_green'])
+        self._append_system_msg("已连接到服务器")
 
     def _on_disconnect(self):
-        self.lbl_status.configure(text="Reconnecting...", fg='#ffa500')
-        self._append_system_msg("Disconnected, reconnecting...")
+        self.lbl_status.configure(text="● 重连中", fg='#fa8c16')
+        self._append_system_msg("连接断开，正在重连...")
 
     def _build_gui(self):
         # 全局样式
@@ -1052,67 +1063,68 @@ class ChatApp:
         main = tk.Frame(self.root, bg=COLORS['nav_bg'])
         main.pack(fill=tk.BOTH, expand=True)
 
-        # ===== 1. 最左侧微信导航栏 =====
-        self.nav_sidebar = tk.Frame(main, bg=COLORS['nav_bg'], width=60)
+        # ===== 1. 最左侧导航栏 =====
+        self.nav_sidebar = tk.Frame(main, bg=COLORS['nav_bg'], width=64)
         self.nav_sidebar.pack(side=tk.LEFT, fill=tk.Y)
         self.nav_sidebar.pack_propagate(False)
 
         # 当前用户头像
-        self._my_avatar = make_preset_avatar('avatar_1', size=38)
+        self._my_avatar = make_preset_avatar('avatar_1', size=40)
         self.lbl_my_avatar = tk.Label(self.nav_sidebar, image=self._my_avatar,
                                        bg=COLORS['nav_bg'], cursor='hand2')
-        self.lbl_my_avatar.pack(side=tk.TOP, pady=20)
+        self.lbl_my_avatar.pack(side=tk.TOP, pady=(22, 16))
         self.lbl_my_avatar.bind('<Button-1>', lambda e: self._open_profile_dialog())
 
         # 导航 Tab (Chat)
-        self.lbl_nav_chat = tk.Label(self.nav_sidebar, text="💬", bg=COLORS['nav_bg'],
-                                      fg=COLORS['green'], font=('Microsoft YaHei', 18),
-                                      cursor='hand2')
-        self.lbl_nav_chat.pack(side=tk.TOP, pady=10)
+        self.lbl_nav_chat = tk.Label(self.nav_sidebar, text="💬", bg=COLORS['nav_active'],
+                                      fg=COLORS['green'], font=('Segoe UI Emoji', 16),
+                                      cursor='hand2', width=3, pady=8)
+        self.lbl_nav_chat.pack(side=tk.TOP, pady=4)
 
         # 底部设置按钮
         self.lbl_nav_settings = tk.Label(self.nav_sidebar, text="⚙",
                                           bg=COLORS['nav_bg'],
-                                          fg=COLORS['text_light'], font=('Microsoft YaHei', 18),
-                                          cursor='hand2')
-        self.lbl_nav_settings.pack(side=tk.BOTTOM, pady=20)
+                                          fg=COLORS['text_light'], font=('Segoe UI Emoji', 15),
+                                          cursor='hand2', width=3, pady=8)
+        self.lbl_nav_settings.pack(side=tk.BOTTOM, pady=18)
         self.lbl_nav_settings.bind('<Button-1>', lambda e: self._set_server_url_dialog())
-        self.lbl_nav_settings.bind('<Enter>', lambda e: self.lbl_nav_settings.configure(fg='white'))
-        self.lbl_nav_settings.bind('<Leave>', lambda e: self.lbl_nav_settings.configure(fg=COLORS['text_light']))
+        self.lbl_nav_settings.bind('<Enter>', lambda e: self.lbl_nav_settings.configure(fg='white', bg=COLORS['nav_active']))
+        self.lbl_nav_settings.bind('<Leave>', lambda e: self.lbl_nav_settings.configure(fg=COLORS['text_light'], bg=COLORS['nav_bg']))
 
 
-        # ===== 2. 中间好友/聊天会话列表 =====
-        self.sidebar = tk.Frame(main, bg=COLORS['list_bg'], width=240)
+        # ===== 2. 中间会话列表 =====
+        self.sidebar = tk.Frame(main, bg=COLORS['list_bg'], width=260)
         self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
         self.sidebar.pack_propagate(False)
 
-        # 会话列表头部 (高60px，与右侧 header 对齐)
+        # 会话列表头部
         self.sidebar_header = tk.Frame(self.sidebar, bg=COLORS['list_bg'], height=60)
         self.sidebar_header.pack(fill=tk.X)
         self.sidebar_header.pack_propagate(False)
 
-        # 微信风格的粗体标题
-        tk.Label(self.sidebar_header, text="微信", bg=COLORS['list_bg'],
-                 fg=COLORS['text_primary'], font=('Microsoft YaHei', 13, 'bold')
-                 ).pack(side=tk.LEFT, padx=12, pady=15)
+        tk.Label(self.sidebar_header, text="ChatRoom", bg=COLORS['list_bg'],
+                 fg=COLORS['text_primary'], font=('Microsoft YaHei UI', 14, 'bold')
+                 ).pack(side=tk.LEFT, padx=14, pady=15)
 
-        self.lbl_status = tk.Label(self.sidebar_header, text="Connecting...",
+        self.lbl_status = tk.Label(self.sidebar_header, text="● 连接中",
                                     bg=COLORS['list_bg'],
                                     fg=COLORS['text_secondary'], font=FONT_SMALL)
-        self.lbl_status.pack(side=tk.RIGHT, padx=12, pady=18)
+        self.lbl_status.pack(side=tk.RIGHT, padx=14, pady=18)
 
-        # 个人名字展示区 (紧跟在会话头部下方)
-        self.lbl_username = tk.Label(self.sidebar, text="Click to set name",
+        # 个人名字展示区
+        self.lbl_username = tk.Label(self.sidebar, text="点击设置昵称",
                                       bg=COLORS['list_bg'],
                                       fg=COLORS['text_primary'],
                                       font=FONT_BOLD,
                                       cursor='hand2',
                                       anchor=tk.W)
-        self.lbl_username.pack(fill=tk.X, padx=12, pady=(0, 8))
+        self.lbl_username.pack(fill=tk.X, padx=14, pady=(0, 10))
         self.lbl_username.bind('<Button-1>', lambda e: self._open_profile_dialog())
+        self.lbl_username.bind('<Enter>', lambda e: self.lbl_username.configure(fg=COLORS['green']))
+        self.lbl_username.bind('<Leave>', lambda e: self.lbl_username.configure(fg=COLORS['text_primary']))
 
         # 分割线
-        tk.Frame(self.sidebar, bg=COLORS['border'], height=1).pack(fill=tk.X, padx=8, pady=(0, 4))
+        tk.Frame(self.sidebar, bg=COLORS['border'], height=1).pack(fill=tk.X, padx=10, pady=(0, 6))
 
         # 公聊入口区域
         self.chat_section = tk.Frame(self.sidebar, bg=COLORS['list_bg'])
@@ -1120,13 +1132,13 @@ class ChatApp:
 
         self.btn_public = tk.Frame(self.chat_section, bg=COLORS['list_active'],
                                     cursor='hand2')
-        self.btn_public.pack(fill=tk.X, padx=0, pady=1)
+        self.btn_public.pack(fill=tk.X, padx=6, pady=2)
 
         pub_inner = tk.Frame(self.btn_public, bg=COLORS['list_active'])
-        pub_inner.pack(fill=tk.X, padx=10, pady=10)
+        pub_inner.pack(fill=tk.X, padx=10, pady=11)
 
-        # 公聊默认头像 (使用 avatar_1)
-        self._pub_avatar = make_preset_avatar('avatar_1', size=36)
+        # 公聊默认头像
+        self._pub_avatar = make_preset_avatar('avatar_1', size=38)
         self.lbl_pub_avatar = tk.Label(pub_inner, image=self._pub_avatar, bg=COLORS['list_active'])
         self.lbl_pub_avatar.image = self._pub_avatar
         self.lbl_pub_avatar.pack(side=tk.LEFT, padx=(0, 10))
@@ -1140,7 +1152,7 @@ class ChatApp:
                              font=FONT_BOLD)
         pub_text.pack(anchor=tk.W)
 
-        pub_subtext = tk.Label(pub_info_frame, text="大家都在这里聊天",
+        pub_subtext = tk.Label(pub_info_frame, text="所有人都可以发言",
                                 bg=COLORS['list_active'],
                                 fg=COLORS['text_secondary'],
                                 font=FONT_SMALL)
@@ -1153,16 +1165,16 @@ class ChatApp:
             w.bind('<Leave>', lambda e: self._set_pub_active_style(False))
 
         # 分割线
-        tk.Frame(self.sidebar, bg=COLORS['border'], height=1).pack(fill=tk.X, padx=8, pady=(4, 4))
+        tk.Frame(self.sidebar, bg=COLORS['border'], height=1).pack(fill=tk.X, padx=10, pady=(6, 4))
 
         # 在线列表容器
         online_section = tk.Frame(self.sidebar, bg=COLORS['list_bg'])
         online_section.pack(fill=tk.BOTH, expand=True, padx=0, pady=(0, 0))
 
         online_header = tk.Frame(online_section, bg=COLORS['list_bg'])
-        online_header.pack(fill=tk.X, padx=12, pady=(4, 2))
+        online_header.pack(fill=tk.X, padx=14, pady=(6, 4))
 
-        tk.Label(online_header, text="用户列表", bg=COLORS['list_bg'],
+        tk.Label(online_header, text="在线用户", bg=COLORS['list_bg'],
                  fg=COLORS['text_secondary'], font=FONT_SMALL).pack(side=tk.LEFT)
         self.lbl_online_count = tk.Label(online_header, text="0",
                                           bg=COLORS['list_bg'],
@@ -1176,12 +1188,12 @@ class ChatApp:
         self.user_list_frame = self.user_scroll.scrollable_frame
 
 
-        # ===== 3. 右侧微信聊天区域 =====
+        # ===== 3. 右侧聊天区域 =====
         right = tk.Frame(main, bg=COLORS['bg_chat'])
         right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # 聊天头部 (高60px)
-        chat_header = tk.Frame(right, bg=COLORS['bg_input'], height=60)
+        # 聊天头部
+        chat_header = tk.Frame(right, bg=COLORS['header_bg'], height=60)
         chat_header.pack(fill=tk.X)
         chat_header.pack_propagate(False)
 
@@ -1189,7 +1201,7 @@ class ChatApp:
         tk.Frame(chat_header, bg=COLORS['border'], height=1).pack(side=tk.BOTTOM, fill=tk.X)
 
         self.btn_back = tk.Label(chat_header, text="← 返回",
-                                  bg=COLORS['bg_input'],
+                                  bg=COLORS['header_bg'],
                                   fg=COLORS['green'],
                                   font=FONT_MAIN,
                                   cursor='hand2')
@@ -1198,20 +1210,20 @@ class ChatApp:
         self.btn_back.bind('<Leave>', lambda e: self.btn_back.configure(fg=COLORS['green']))
 
         self.lbl_chat_title = tk.Label(chat_header, text="公共聊天室",
-                                        bg=COLORS['bg_input'],
+                                        bg=COLORS['header_bg'],
                                         fg=COLORS['text_primary'],
                                         font=FONT_TITLE)
-        self.lbl_chat_title.pack(side=tk.LEFT, padx=16, pady=15)
+        self.lbl_chat_title.pack(side=tk.LEFT, padx=18, pady=15)
 
         self.lbl_chat_status = tk.Label(chat_header, text="公开频道",
-                                         bg=COLORS['bg_input'],
+                                         bg=COLORS['header_bg'],
                                          fg=COLORS['text_secondary'],
                                          font=FONT_SMALL)
-        self.lbl_chat_status.pack(side=tk.LEFT, padx=4, pady=20)
+        self.lbl_chat_status.pack(side=tk.LEFT, padx=2, pady=20)
 
-        # 输入区容器 (微信灰白背景)
+        # 输入区容器
         input_section_container = tk.Frame(right, bg=COLORS['bg_chat'])
-        input_section_container.pack(fill=tk.X, side=tk.BOTTOM, padx=16, pady=(0, 16))
+        input_section_container.pack(fill=tk.X, side=tk.BOTTOM, padx=14, pady=(0, 14))
 
         # 消息区域
         self.msg_scroll = ScrollableFrame(right, bg=COLORS['bg_chat'],
@@ -1219,11 +1231,10 @@ class ChatApp:
         self.msg_scroll.pack(fill=tk.BOTH, expand=True)
         self.msg_frame = self.msg_scroll.scrollable_frame
 
-        # 表情面板 (Grid 布局, 默认不展示)
+        # 表情面板
         self.emoji_panel = tk.Frame(input_section_container, bg=COLORS['text_input_bg'],
                                     highlightbackground=COLORS['border'], highlightthickness=1)
         
-        # 64个表情
         emojis = [
             "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰", 
             "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏", 
@@ -1241,7 +1252,7 @@ class ChatApp:
             lbl = tk.Label(emoji_grid, text=emoji, bg=COLORS['text_input_bg'], font=('', 14), cursor='hand2')
             lbl.grid(row=row, column=col, padx=4, pady=4)
             lbl.bind('<Button-1>', lambda e, em=emoji: self._insert_emoji(em))
-            lbl.bind('<Enter>', lambda e, l=lbl: l.configure(bg=COLORS['border']))
+            lbl.bind('<Enter>', lambda e, l=lbl: l.configure(bg=COLORS['list_hover']))
             lbl.bind('<Leave>', lambda e, l=lbl: l.configure(bg=COLORS['text_input_bg']))
 
         # 输入框主容器
@@ -1249,36 +1260,33 @@ class ChatApp:
                                   highlightbackground=COLORS['border'], highlightthickness=1)
         self.input_box.pack(fill=tk.BOTH, expand=True)
 
-        # 微信风格的工具栏在上方
+        # 工具栏
         toolbar = tk.Frame(self.input_box, bg=COLORS['bg_input'])
-        toolbar.pack(fill=tk.X, side=tk.TOP, padx=8, pady=6)
+        toolbar.pack(fill=tk.X, side=tk.TOP, padx=10, pady=(8, 4))
 
         icons_frame = tk.Frame(toolbar, bg=COLORS['bg_input'])
         icons_frame.pack(side=tk.LEFT)
 
-        # 使用 Unicode 符号模拟图标
         icons = [
-            ("😀", lambda e: self._toggle_emoji_panel(e)), 
-            ("📁", lambda e: self._upload_file()), 
-            ("✂", lambda e: None), 
-            ("🎤", lambda e: None)
+            ("😀", lambda e: self._toggle_emoji_panel(e)),
+            ("📁", lambda e: self._upload_file()),
         ]
         
         for text, cmd in icons:
             lbl = tk.Label(icons_frame, text=text, bg=COLORS['bg_input'], 
-                           fg=COLORS['text_secondary'], font=('', 14), cursor='hand2')
-            lbl.pack(side=tk.LEFT, padx=6)
+                           fg=COLORS['text_secondary'], font=('', 15), cursor='hand2')
+            lbl.pack(side=tk.LEFT, padx=7)
             lbl.bind('<Button-1>', cmd)
             lbl.bind('<Enter>', lambda e, l=lbl: l.configure(fg=COLORS['text_primary']))
             lbl.bind('<Leave>', lambda e, l=lbl: l.configure(fg=COLORS['text_secondary']))
 
         # 发送按钮
         self._send_active = False
-        self.btn_send = tk.Label(toolbar, text=" 发送 ",
-                                  bg='#F0F0F0', fg='#CCCCCC',
-                                  font=FONT_MAIN,
-                                  padx=16, pady=6, cursor='hand2')
-        self.btn_send.pack(side=tk.RIGHT, padx=4)
+        self.btn_send = tk.Label(toolbar, text="  发送  ",
+                                  bg='#e8e8ed', fg='#c0c4cc',
+                                  font=FONT_BOLD,
+                                  padx=14, pady=5, cursor='hand2')
+        self.btn_send.pack(side=tk.RIGHT, padx=2)
         self.btn_send.bind('<Button-1>', lambda e: self._send_message())
         self.btn_send.bind('<Enter>', self._on_send_hover_enter)
         self.btn_send.bind('<Leave>', self._on_send_hover_leave)
@@ -1288,8 +1296,8 @@ class ChatApp:
                                  fg=COLORS['text_primary'], font=FONT_MAIN,
                                  bd=0, highlightthickness=0, height=4,
                                  insertbackground=COLORS['text_primary'],
-                                 wrap=tk.WORD)
-        self.msg_input.pack(fill=tk.BOTH, expand=True, padx=8, pady=(4, 8))
+                                 wrap=tk.WORD, spacing1=2, spacing3=2)
+        self.msg_input.pack(fill=tk.BOTH, expand=True, padx=12, pady=(2, 10))
         self.msg_input.bind('<KeyRelease>', self._on_input_change)
         self.msg_input.bind('<Return>', self._on_enter_press)
 
@@ -1299,7 +1307,7 @@ class ChatApp:
             self.btn_send.configure(bg=COLORS['green'], fg='white')
             self._send_active = True
         else:
-            self.btn_send.configure(bg='#E1E1E1', fg='#999999')
+            self.btn_send.configure(bg='#e8e8ed', fg='#c0c4cc')
             self._send_active = False
 
     def _on_send_hover_enter(self, event):
@@ -1413,7 +1421,7 @@ class ChatApp:
             self.lbl_username.configure(text=username)
             self._update_my_avatar(username, avatar_id)
         else:
-            self.lbl_username.configure(text="Click to set name")
+            self.lbl_username.configure(text="点击设置昵称")
             self.root.after(500, self._set_username_dialog)
 
         self._append_system_msg("Authentication successful")

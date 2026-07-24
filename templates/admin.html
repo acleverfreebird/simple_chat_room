@@ -29,7 +29,8 @@
             --transition: .2s cubic-bezier(.4,0,.2,1);
         }
         *{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+        body{font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;
+            background-image:radial-gradient(ellipse 80% 50% at 100% -20%,rgba(99,102,241,.07),transparent),radial-gradient(ellipse 60% 40% at 0% 100%,rgba(139,92,246,.05),transparent)}
 
         /* ===== Scrollbar ===== */
         ::-webkit-scrollbar{width:6px;height:6px}
@@ -44,7 +45,7 @@
         .sidebar{width:240px;flex-shrink:0;background:var(--sidebar-bg);padding:0;display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:transform .3s ease}
         .sidebar-header{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,.08)}
         .sidebar-brand{display:flex;align-items:center;gap:12px}
-        .sidebar-logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#818cf8,#6366f1);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 4px 12px rgba(99,102,241,.4)}
+        .sidebar-logo{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#818cf8,#6366f1 55%,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 14px rgba(99,102,241,.45);color:#fff}
         .sidebar-title{color:#fff;font-size:16px;font-weight:700;letter-spacing:-.3px}
         .sidebar-subtitle{color:rgba(255,255,255,.45);font-size:11px;font-weight:500;margin-top:2px;letter-spacing:.5px;text-transform:uppercase}
         .sidebar-nav{flex:1;padding:12px 12px;overflow-y:auto}
@@ -309,27 +310,47 @@
             .detail-grid{grid-template-columns:1fr}
             .detail-label{border-radius:0;padding:8px 14px}
         }
+
+        /* ===== Login ===== */
+        .login-overlay{display:none;position:fixed;inset:0;z-index:9999;justify-content:center;align-items:center;padding:20px;
+            background:radial-gradient(ellipse 80% 60% at 20% 20%,rgba(99,102,241,.45),transparent 55%),
+                       radial-gradient(ellipse 70% 50% at 90% 80%,rgba(139,92,246,.35),transparent 50%),
+                       linear-gradient(145deg,#0f172a 0%,#1e1b4b 45%,#312e81 100%)}
+        .login-overlay::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(ellipse at center,black 30%,transparent 80%);pointer-events:none}
+        .login-card{position:relative;background:rgba(255,255,255,.96);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:22px;padding:40px 36px 32px;width:400px;max-width:92vw;text-align:center;box-shadow:0 25px 50px -12px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.6);animation:scaleIn .3s cubic-bezier(.34,1.56,.64,1)}
+        .login-logo{width:64px;height:64px;margin:0 auto 16px;border-radius:18px;background:linear-gradient(135deg,#818cf8,#6366f1 55%,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 12px 28px rgba(99,102,241,.4);color:#fff}
+        .login-card h2{margin:0 0 6px;font-size:22px;font-weight:800;color:var(--text);letter-spacing:-.4px}
+        .login-card .login-desc{color:var(--text-secondary);font-size:13px;margin:0 0 24px;line-height:1.5}
+        .login-input{width:100%;padding:13px 16px;border:1.5px solid var(--border);border-radius:12px;font-size:14px;outline:none;margin-bottom:12px;box-sizing:border-box;font-family:inherit;color:var(--text);background:#fff;transition:var(--transition)}
+        .login-input:focus{border-color:var(--primary);box-shadow:0 0 0 4px var(--primary-glow)}
+        .login-err{color:var(--danger);font-size:12px;min-height:20px;margin-bottom:12px;font-weight:500}
+        .login-btn{width:100%;padding:13px;background:linear-gradient(135deg,#6366f1,#7c3aed 50%,#8b5cf6);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 8px 20px rgba(99,102,241,.3);transition:var(--transition)}
+        .login-btn:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(99,102,241,.4)}
+        .login-btn:active{transform:translateY(0)}
+        .login-hint{margin-top:18px;font-size:11px;color:var(--text-muted)}
+
+        /* Toolbar selects in card headers */
+        .card-header select,.card-header input[type=text],.card-header input:not([type]){
+            padding:7px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;outline:none;background:#fff;
+            transition:var(--transition);font-family:inherit;color:var(--text)}
+        .card-header select:focus,.card-header input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-glow)}
     </style>
 </head>
 <body>
 
 <!-- Login Overlay -->
-<div id="login-overlay" style="display:none;position:fixed;inset:0;background:linear-gradient(135deg,#1e1b4b,#312e81);z-index:9999;justify-content:center;align-items:center">
-    <div style="background:#fff;border-radius:20px;padding:40px;width:380px;max-width:90vw;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-        <div style="font-size:40px;margin-bottom:16px">&#128274;</div>
-        <h2 style="margin:0 0 8px;font-size:20px;color:#1e293b">管理面板登录</h2>
-        <p style="color:#64748b;font-size:13px;margin:0 0 24px">仅限本机或授权 IP 访问</p>
-        <input type="text" id="login-username" placeholder="请输入管理员用户名 (如 admin)" value="admin"
-            style="width:100%;padding:12px 16px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;outline:none;margin-bottom:12px;box-sizing:border-box"
+<div id="login-overlay" class="login-overlay">
+    <div class="login-card">
+        <div class="login-logo">&#9670;</div>
+        <h2>管理面板</h2>
+        <p class="login-desc">Control Center · 仅限本机或授权 IP 访问</p>
+        <input type="text" id="login-username" class="login-input" placeholder="管理员用户名" value="admin"
             onkeydown="if(event.key==='Enter')doAdminLogin()">
-        <input type="password" id="login-pwd" placeholder="请输入管理员密码"
-            style="width:100%;padding:12px 16px;border:2px solid #e2e8f0;border-radius:12px;font-size:14px;outline:none;margin-bottom:8px;box-sizing:border-box"
+        <input type="password" id="login-pwd" class="login-input" placeholder="请输入管理员密码"
             onkeydown="if(event.key==='Enter')doAdminLogin()">
-        <div id="login-err" style="color:#ef4444;font-size:12px;min-height:20px;margin-bottom:16px"></div>
-        <button onclick="doAdminLogin()"
-            style="width:100%;padding:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer">
-            登 录
-        </button>
+        <div id="login-err" class="login-err"></div>
+        <button class="login-btn" onclick="doAdminLogin()">登 录</button>
+        <div class="login-hint">安全会话 · 操作将写入审计日志</div>
     </div>
 </div>
 
@@ -823,8 +844,7 @@ function doAdminLogin(){
         body:JSON.stringify({username:username, password:pwd})
     }).then(function(r){return r.json()}).then(function(d){
         if(d.status==='success'){
-            // 设置 cookie
-            document.cookie='admin_token='+d.token+';path=/;max-age=86400';
+            // Cookie 由服务端 Set-Cookie(HttpOnly) 下发，JS 不再读写 token，降低 XSS 窃取风险
             currentAdminRole=d.role||'admin';
             localStorage.setItem('admin_role',currentAdminRole);
             hideLoginPage();
@@ -1619,7 +1639,10 @@ document.addEventListener('keydown',function(e){
 // ===================== LOGOUT =====================
 function doLogout(){
     fetch('/api/admin/logout',{method:'POST'}).then(function(){
-        document.cookie='admin_token=;path=/;max-age=0';
+        // 服务端清除 HttpOnly Cookie；前端只清理本地 UI 状态
+        localStorage.removeItem('admin_role');
+        window.location.href='/admin';
+    }).catch(function(){
         localStorage.removeItem('admin_role');
         window.location.href='/admin';
     });

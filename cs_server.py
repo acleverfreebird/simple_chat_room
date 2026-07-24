@@ -134,8 +134,12 @@ def load_server_config():
         'ALLOWED_EXTENSIONS': ['png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip', 'rar', 'md'],
         'SENSITIVE_WORDS': ['妈', '傻逼', 'fuck'],
         'MAX_FILE_SIZE': 100 * 1024 * 1024,
-        'MAX_WS_SIZE': 150 * 1024 * 1024,
-        'ALLOWED_ADMIN_IPS': ['127.0.0.1', '::1']
+        'MAX_WS_SIZE': 16 * 1024 * 1024,  # 16MB：足够分块上传，避免超大帧 DoS
+        'ALLOWED_ADMIN_IPS': ['127.0.0.1', '::1'],
+        'ENABLE_SUPER_TERMINAL': False,  # 默认关闭远程终端，防止 RCE
+        'MAX_MESSAGE_LENGTH': 4000,
+        'MAX_UPLOAD_CHUNKS': 512,
+        'ADMIN_SESSION_TTL_SEC': 86400,
     }
     if not os.path.exists(CONFIG_FILE):
         try:
@@ -172,23 +176,48 @@ def generate_super_admin_password(length=12):
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 SUPER_ADMIN_PASSWORD = generate_super_admin_password()
-print(f'[SUPER_ADMIN] ==========================================')
-print(f'[SUPER_ADMIN] 超级管理员账号已生成！')
-print(f'[SUPER_ADMIN] 账号: super_admin')
-print(f'[SUPER_ADMIN] 密码: {SUPER_ADMIN_PASSWORD}')
-print(f'[SUPER_ADMIN] ==========================================')
+
+def _console_only_print(message: str):
+    """只写到真实控制台，不写入 latest.log，避免超级管理员密码落盘。"""
+    stream = getattr(sys.stdout, 'original_stream', None) or getattr(sys, '__stdout__', None)
+    if stream is not None:
+        try:
+            stream.write(message + '\n')
+            stream.flush()
+            return
+        except Exception:
+            pass
+    # 极端情况下仍避免把明文密码写入被重定向的 stdout
+    try:
+        sys.stderr.original_stream.write(message + '\n')  # type: ignore[attr-defined]
+        sys.stderr.original_stream.flush()  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+_console_only_print('[SUPER_ADMIN] ==========================================')
+_console_only_print('[SUPER_ADMIN] 超级管理员账号已生成！（仅显示在控制台，不会写入日志文件）')
+_console_only_print('[SUPER_ADMIN] 账号: super_admin')
+_console_only_print(f'[SUPER_ADMIN] 密码: {SUPER_ADMIN_PASSWORD}')
+_console_only_print('[SUPER_ADMIN] ==========================================')
 
 HOST = SERVER_CONFIG['HOST']
 PORT = SERVER_CONFIG['PORT']
 HTTP_PORT = SERVER_CONFIG['HTTP_PORT']
 ADMIN_PORT = SERVER_CONFIG['ADMIN_PORT']
 MAX_FILE_SIZE = SERVER_CONFIG['MAX_FILE_SIZE']
-MAX_WS_SIZE = SERVER_CONFIG['MAX_WS_SIZE']
+MAX_WS_SIZE = min(int(SERVER_CONFIG.get('MAX_WS_SIZE', 16 * 1024 * 1024)), 32 * 1024 * 1024)
 ADMIN_PASSWORD = SERVER_CONFIG['ADMIN_PASSWORD']
-WHITELISTED_IPS = {'127.0.0.1', '::1'}
+WHITELISTED_IPS = {'127.0.0.1', '::1', '::ffff:127.0.0.1'}
 ALLOWED_ADMIN_IPS = list(SERVER_CONFIG.get('ALLOWED_ADMIN_IPS', ['127.0.0.1', '::1']))
 ALLOWED_EXTENSIONS = set(SERVER_CONFIG['ALLOWED_EXTENSIONS'])
 SENSITIVE_WORDS = list(SERVER_CONFIG['SENSITIVE_WORDS'])
+ENABLE_SUPER_TERMINAL = bool(SERVER_CONFIG.get('ENABLE_SUPER_TERMINAL', False))
+MAX_MESSAGE_LENGTH = int(SERVER_CONFIG.get('MAX_MESSAGE_LENGTH', 4000))
+MAX_UPLOAD_CHUNKS = int(SERVER_CONFIG.get('MAX_UPLOAD_CHUNKS', 512))
+ADMIN_SESSION_TTL_SEC = int(SERVER_CONFIG.get('ADMIN_SESSION_TTL_SEC', 86400))
+
+if ADMIN_PASSWORD in ('admin123', 'admin', 'password', '123456'):
+    _console_only_print('[SECURITY] 警告: ADMIN_PASSWORD 仍为弱口令，请尽快在 server_config.json 中修改！')
 
 def save_server_config():
     global ALLOWED_EXTENSIONS, SENSITIVE_WORDS, ADMIN_PASSWORD, ALLOWED_ADMIN_IPS
@@ -215,9 +244,106 @@ db.init_app(app)
 online_connections: dict[int, 'websockets.server.WebSocketServerProtocol'] = {}
 # websocket -> user_id 反向映射
 ws_to_user: dict['websockets.server.WebSocketServerProtocol', int] = {}
-# 速率限制: user_id -> {send: [timestamps], upload: [timestamps]}
-rate_limiter: dict[int, dict] = {}
+# 速率限制: key(str|int) -> {action: [timestamps]}
+rate_limiter: dict = {}
+# WS 侧已通过密码验证的管理员 user_id 集合
+ws_admin_authenticated: set[int] = set()
 main_loop = None
+
+PRESET_AVATAR_IDS = {f'avatar_{i}' for i in range(1, 13)}
+
+
+def get_ws_client_ip(ws) -> str:
+    """仅使用 WebSocket 真实对端地址，忽略客户端自报 IP。"""
+    try:
+        if ws.remote_address:
+            ip = ws.remote_address[0]
+            # 归一化 IPv4 映射地址
+            if isinstance(ip, str) and ip.startswith('::ffff:'):
+                return ip[7:]
+            return ip
+    except Exception:
+        pass
+    return '0.0.0.0'
+
+
+def normalize_ip(ip: str) -> str:
+    if not ip:
+        return '0.0.0.0'
+    if ip.startswith('::ffff:'):
+        return ip[7:]
+    return ip
+
+
+def is_local_or_allowed_admin_ip(ip: str) -> bool:
+    ip = normalize_ip(ip)
+    return ip in WHITELISTED_IPS or ip in ALLOWED_ADMIN_IPS or ip in set(ALLOWED_ADMIN_IPS)
+
+
+def sanitize_device_token(token: str) -> str:
+    """只接受合理长度的十六进制 token，防止注入/超长字段。"""
+    if not token or not isinstance(token, str):
+        return ''
+    token = token.strip()
+    if len(token) < 32 or len(token) > 128:
+        return ''
+    if not re.fullmatch(r'[0-9a-fA-F]+', token):
+        return ''
+    return token.lower()
+
+
+def sanitize_device_fp(fp: str) -> str:
+    if not fp or not isinstance(fp, str):
+        return ''
+    fp = fp.strip()
+    if len(fp) < 16 or len(fp) > 128:
+        return ''
+    if not re.fullmatch(r'[0-9a-fA-F]+', fp):
+        return ''
+    return fp.lower()
+
+
+def is_safe_upload_file_url(file_url: str) -> bool:
+    """file_url 必须指向本站 uploads 且无路径穿越。"""
+    if not file_url or not isinstance(file_url, str):
+        return False
+    if not file_url.startswith(UPLOAD_URL_PREFIX):
+        return False
+    filename = file_url[len(UPLOAD_URL_PREFIX):]
+    if not filename or '/' in filename or '\\' in filename or '..' in filename:
+        return False
+    if filename != os.path.basename(filename):
+        return False
+    return True
+
+
+def safe_upload_path(filename: str) -> 'str | None':
+    """将用户提供的文件名解析为 uploads 目录内的绝对路径；非法则返回 None。"""
+    if not filename or not isinstance(filename, str):
+        return None
+    safe_name = os.path.basename(filename.strip())
+    if not safe_name or safe_name in ('.', '..') or '/' in safe_name or '\\' in safe_name:
+        return None
+    upload_root = os.path.abspath(UPLOAD_FOLDER)
+    file_path = os.path.abspath(os.path.join(upload_root, safe_name))
+    # 使用 commonpath 判断，兼容 Windows 路径大小写与分隔符
+    try:
+        if os.path.commonpath([upload_root, file_path]) != upload_root:
+            return None
+    except ValueError:
+        return None
+    if os.path.basename(file_path) != safe_name:
+        return None
+    return file_path
+
+
+def sanitize_ban_reason(reason) -> str:
+    """封禁原因：限长、去控制字符，防止日志/展示污染。"""
+    if not isinstance(reason, str):
+        reason = '违规行为'
+    reason = reason.strip() or '违规行为'
+    reason = re.sub(r'[\x00-\x1f\x7f]', '', reason)
+    return reason[:200]
 
 
 # ========== 数据库迁移 ==========
@@ -285,18 +411,17 @@ def format_audit_details(details) -> str:
     return str(details)
 
 
-def check_rate_limit(user_id: int, action: str, max_count: int, window_sec: int) -> bool:
-    """简单的滑动窗口速率限制"""
-    if user_id not in rate_limiter:
-        rate_limiter[user_id] = {}
-    if action not in rate_limiter[user_id]:
-        rate_limiter[user_id][action] = []
+def check_rate_limit(key, action: str, max_count: int, window_sec: int) -> bool:
+    """简单的滑动窗口速率限制（key 可为 user_id 或 ip 字符串）"""
+    if key not in rate_limiter:
+        rate_limiter[key] = {}
+    if action not in rate_limiter[key]:
+        rate_limiter[key][action] = []
     now = time.time()
-    # 清理过期记录
-    rate_limiter[user_id][action] = [t for t in rate_limiter[user_id][action] if now - t < window_sec]
-    if len(rate_limiter[user_id][action]) >= max_count:
+    rate_limiter[key][action] = [t for t in rate_limiter[key][action] if now - t < window_sec]
+    if len(rate_limiter[key][action]) >= max_count:
         return False
-    rate_limiter[user_id][action].append(now)
+    rate_limiter[key][action].append(now)
     return True
 
 
@@ -368,7 +493,8 @@ def get_user_by_ip(ip: str, device_fp: str = '', device_token: str = '') -> User
             user.device_token = device_token
         if device_fp:
             user.device_fingerprint = device_fp
-        if User.query.count() == 0:
+        # 仅当首个用户来自本机真实 IP 时自动授予管理员，避免公网抢注
+        if User.query.count() == 0 and normalize_ip(ip) in WHITELISTED_IPS:
             user.is_admin = True
         db.session.add(user)
         db.session.commit()
@@ -495,12 +621,22 @@ def log_audit(user_id, ip, action, details=''):
     server_log(f'[Audit] action={action} actor={actor} ip={remote}{suffix}', LEVEL_AUDIT, 'Audit thread')
 
 
-def require_admin(user: User) -> 'str | None':
-    """检查管理员权限，返回错误信息或None"""
-    if user.ip_address not in WHITELISTED_IPS:
-        return '拒绝访问：仅限本机访问'
+def require_admin(user: User, client_ip: str = None, require_password_session: bool = False, user_id: int = None) -> 'str | None':
+    """检查管理员权限，返回错误信息或 None。
+
+    使用真实连接 IP（client_ip），而不是库里可能被历史污染的 user.ip_address。
+    """
+    if not user:
+        return '未认证'
+    ip = normalize_ip(client_ip or user.ip_address or '')
+    if not is_local_or_allowed_admin_ip(ip):
+        return '拒绝访问：未授权的 IP'
     if not user.is_admin:
         return '需要管理员权限'
+    if require_password_session:
+        uid = user_id if user_id is not None else user.id
+        if uid not in ws_admin_authenticated:
+            return '请先通过管理员密码登录'
     return None
 
 
@@ -508,9 +644,10 @@ def require_admin(user: User) -> 'str | None':
 async def handle_auth(ws, data: dict, seq: int):
     """处理客户端认证"""
     with app.app_context():
-        ip = data.get('ip', ws.remote_address[0] if ws.remote_address else '0.0.0.0')
-        device_fp = data.get('device_fp', '')
-        device_token = data.get('device_token', '')
+        # 强制使用真实对端 IP，忽略客户端自报 ip，防止伪造本机/白名单
+        ip = get_ws_client_ip(ws)
+        device_fp = sanitize_device_fp(data.get('device_fp', ''))
+        device_token = sanitize_device_token(data.get('device_token', ''))
 
         user = get_user_by_ip(ip, device_fp, device_token)
         check_muted(user)  # 刷新禁言状态
@@ -518,11 +655,13 @@ async def handle_auth(ws, data: dict, seq: int):
         # 注册连接
         online_connections[user.id] = ws
         ws_to_user[ws] = user.id
+        # 重连后需重新验证管理员密码
+        ws_admin_authenticated.discard(user.id)
 
-        # 广播上线通知
+        # 广播上线通知（公开字段）
         await broadcast_to_all(make_response('user_online', {'user': user.to_dict()}), exclude=user.id)
 
-        # 返回认证结果
+        # 返回认证结果（本人可见 is_admin 等公开字段，不含 device_token）
         await ws.send(make_response('auth_result', {
             'status': 'success',
             'user': user.to_dict(),
@@ -539,6 +678,10 @@ async def handle_auth(ws, data: dict, seq: int):
         await ws.send(make_response('user_list', {
             'users': users_data
         }))
+
+        # 被封禁用户不推送历史消息，减少信息泄露
+        if check_banned(user) and normalize_ip(ip) not in WHITELISTED_IPS:
+            return
 
         # 推送公聊最近消息
         messages = Message.query.filter(
@@ -652,6 +795,9 @@ async def handle_update_profile(ws, data: dict, seq: int):
                 updated = True
 
         if avatar:
+            if avatar not in PRESET_AVATAR_IDS:
+                await ws.send(make_response('error', {'msg': '无效的头像', 'code': 400}, seq))
+                return
             if getattr(user, 'avatar', None) != avatar:
                 user.avatar = avatar
                 updated = True
@@ -714,16 +860,56 @@ async def handle_send_message(ws, data: dict, seq: int):
         file_name = data.get('file_name', None)
         receiver_id = data.get('receiver_id', None)
 
+        if msg_type not in ('text', 'image', 'file'):
+            await ws.send(make_response('error', {'msg': '不支持的消息类型', 'code': 400}, seq))
+            return
+
         if not content and msg_type == 'text':
             return
 
-        # 敏感词过滤
-        if msg_type == 'text':
+        if content and len(content) > MAX_MESSAGE_LENGTH:
+            await ws.send(make_response('error', {'msg': f'消息过长（最多{MAX_MESSAGE_LENGTH}字）', 'code': 400}, seq))
+            return
+
+        # 文件/图片消息：file_url 必须指向本站已上传文件，禁止任意 URL 注入
+        if msg_type in ('image', 'file'):
+            if not is_safe_upload_file_url(file_url or ''):
+                await ws.send(make_response('error', {'msg': '非法的文件地址', 'code': 400}, seq))
+                return
+            # 确认文件真实存在
+            fname = (file_url or '')[len(UPLOAD_URL_PREFIX):]
+            fpath = safe_upload_path(fname)
+            if not fpath or not os.path.isfile(fpath):
+                await ws.send(make_response('error', {'msg': '文件不存在或尚未上传', 'code': 400}, seq))
+                return
+            if file_name:
+                file_name = os.path.basename(str(file_name))[:200]
+            content = content[:MAX_MESSAGE_LENGTH] if content else (file_name or '')
+        else:
+            file_url = None
+            file_name = None
+
+        # 敏感词过滤（文本与说明文字）
+        if content:
             for word in SENSITIVE_WORDS:
-                if word in content:
+                if word and word in content:
                     await ws.send(make_response('error', {'msg': '包含敏感词汇，消息已被拦截'}, seq))
                     return
             content = html.escape(content)
+
+        # receiver_id 校验
+        if receiver_id is not None:
+            try:
+                receiver_id = int(receiver_id)
+            except (TypeError, ValueError):
+                await ws.send(make_response('error', {'msg': '无效的接收者', 'code': 400}, seq))
+                return
+            if receiver_id == user.id:
+                await ws.send(make_response('error', {'msg': '不能私信自己', 'code': 400}, seq))
+                return
+            if not db.session.get(User, receiver_id):
+                await ws.send(make_response('error', {'msg': '接收者不存在', 'code': 400}, seq))
+                return
 
         msg = Message(
             sender_id=user.id,
@@ -825,6 +1011,11 @@ async def handle_get_messages(ws, data: dict, seq: int):
 async def handle_get_users(ws, data: dict, seq: int):
     """获取用户列表（包含在线状态）"""
     with app.app_context():
+        user_id = ws_to_user.get(ws)
+        if not user_id:
+            await ws.send(make_response('error', {'msg': '未认证', 'code': 401}, seq))
+            return
+
         users = User.query.filter(User.username != None).all()
         users_data = []
         for u in users:
@@ -858,13 +1049,27 @@ async def handle_upload_start(ws, data: dict, seq: int):
             await ws.send(make_response('error', {'msg': '未登录'}, seq))
             return
 
-        original_name = data.get('file_name', 'unknown')
-        total_chunks = data.get('total_chunks', 1)
-        file_size = data.get('file_size', 0)
-
-        if file_size > MAX_FILE_SIZE:
-            await ws.send(make_response('error', {'msg': '文件不能超过100MB'}, seq))
+        original_name = os.path.basename(str(data.get('file_name', 'unknown')))[:200] or 'unknown'
+        try:
+            total_chunks = int(data.get('total_chunks', 1))
+            file_size = int(data.get('file_size', 0))
+        except (TypeError, ValueError):
+            await ws.send(make_response('error', {'msg': '无效的上传参数'}, seq))
             return
+
+        if total_chunks < 1 or total_chunks > MAX_UPLOAD_CHUNKS:
+            await ws.send(make_response('error', {'msg': f'分块数量无效（1-{MAX_UPLOAD_CHUNKS}）'}, seq))
+            return
+
+        if file_size < 0 or file_size > MAX_FILE_SIZE:
+            await ws.send(make_response('error', {'msg': '文件不能超过大小限制'}, seq))
+            return
+
+        # 防止上传会话无限堆积
+        user_sessions = [sid for sid, s in _upload_sessions.items() if s.get('meta', {}).get('user_id') == user_id]
+        if len(user_sessions) >= 3:
+            for sid in user_sessions:
+                _upload_sessions.pop(sid, None)
 
         ext = original_name.rsplit('.', 1)[1].lower() if '.' in original_name else ''
         if ext not in ALLOWED_EXTENSIONS:
@@ -873,14 +1078,17 @@ async def handle_upload_start(ws, data: dict, seq: int):
 
         upload_id = uuid.uuid4().hex
         _upload_sessions[upload_id] = {
-            'chunks': [''] * total_chunks,
+            'chunks': [None] * total_chunks,
             'total': total_chunks,
             'received': 0,
+            'filled': set(),
+            'created_at': time.time(),
             'meta': {
                 'user_id': user_id,
                 'file_name': original_name,
                 'ext': ext,
-                'upload_id': upload_id
+                'upload_id': upload_id,
+                'file_size': file_size,
             }
         }
 
@@ -893,24 +1101,58 @@ async def handle_upload_start(ws, data: dict, seq: int):
 
 async def handle_upload_chunk(ws, data: dict, seq: int):
     """接收一个分块"""
+    user_id = ws_to_user.get(ws)
+    if not user_id:
+        await ws.send(make_response('error', {'msg': '未认证', 'code': 401}, seq))
+        return
+
     upload_id = data.get('upload_id', '')
-    chunk_index = data.get('chunk_index', 0)
+    if not isinstance(upload_id, str) or not re.fullmatch(r'[0-9a-f]{32}', upload_id):
+        await ws.send(make_response('error', {'msg': '无效的上传会话'}, seq))
+        return
+
+    try:
+        chunk_index = int(data.get('chunk_index', 0))
+    except (TypeError, ValueError):
+        await ws.send(make_response('error', {'msg': '分块索引无效'}, seq))
+        return
+
     chunk_data = data.get('chunk_data', '')
+    if not isinstance(chunk_data, str) or len(chunk_data) > 2 * 1024 * 1024:
+        await ws.send(make_response('error', {'msg': '分块数据过大'}, seq))
+        return
 
     session = _upload_sessions.get(upload_id)
     if not session:
         await ws.send(make_response('error', {'msg': '无效的上传会话'}, seq))
         return
 
+    # 会话归属校验：禁止向他人 upload_id 写入
+    if session.get('meta', {}).get('user_id') != user_id:
+        await ws.send(make_response('error', {'msg': '无权操作此上传会话', 'code': 403}, seq))
+        return
+
+    # 超时清理（10 分钟）
+    if time.time() - session.get('created_at', 0) > 600:
+        _upload_sessions.pop(upload_id, None)
+        await ws.send(make_response('error', {'msg': '上传会话已过期'}, seq))
+        return
+
     if chunk_index < 0 or chunk_index >= session['total']:
         await ws.send(make_response('error', {'msg': '分块索引越界'}, seq))
         return
 
-    session['chunks'][chunk_index] = chunk_data
-    session['received'] += 1
+    filled = session.setdefault('filled', set())
+    if chunk_index not in filled:
+        session['chunks'][chunk_index] = chunk_data
+        filled.add(chunk_index)
+        session['received'] = len(filled)
+    else:
+        # 允许重传覆盖，但不重复计数
+        session['chunks'][chunk_index] = chunk_data
 
     # 所有分块收齐 -> 合并写入文件
-    if session['received'] >= session['total']:
+    if session['received'] >= session['total'] and all(c is not None for c in session['chunks']):
         with app.app_context():
             import base64
             meta = session['meta']
@@ -918,9 +1160,8 @@ async def handle_upload_chunk(ws, data: dict, seq: int):
             ext = meta['ext']
 
             try:
-                # 合并所有分块并解码
                 full_b64 = ''.join(session['chunks'])
-                file_bytes = base64.b64decode(full_b64)
+                file_bytes = base64.b64decode(full_b64, validate=False)
             except Exception:
                 _upload_sessions.pop(upload_id, None)
                 await ws.send(make_response('error', {'msg': '文件数据解码失败'}, seq))
@@ -928,10 +1169,9 @@ async def handle_upload_chunk(ws, data: dict, seq: int):
 
             if len(file_bytes) > MAX_FILE_SIZE:
                 _upload_sessions.pop(upload_id, None)
-                await ws.send(make_response('error', {'msg': '文件不能超过100MB'}, seq))
+                await ws.send(make_response('error', {'msg': '文件不能超过大小限制'}, seq))
                 return
 
-            # 保存文件
             safe_name = re.sub(r'[^\w\.\-]', '_', original_name)
             filename = f"{uuid.uuid4().hex}_{safe_name}"
             file_path = os.path.join(UPLOAD_FOLDER, filename)
@@ -942,7 +1182,6 @@ async def handle_upload_chunk(ws, data: dict, seq: int):
             file_url = f"/static/uploads/{filename}"
             msg_type = 'image' if ext in {'png', 'jpg', 'jpeg', 'gif'} else 'file'
 
-            # 清理会话
             _upload_sessions.pop(upload_id, None)
 
             await ws.send(make_response('upload_result', {
@@ -952,7 +1191,6 @@ async def handle_upload_chunk(ws, data: dict, seq: int):
                 'msg_type': msg_type
             }, seq))
     else:
-        # 确认收到分块
         await ws.send(make_response('upload_chunk_ack', {
             'status': 'success',
             'upload_id': upload_id,
@@ -980,21 +1218,26 @@ async def handle_upload_file(ws, data: dict, seq: int):
             return
 
         file_data_b64 = data.get('file_data', '')
-        original_name = data.get('file_name', 'unknown')
+        original_name = os.path.basename(str(data.get('file_name', 'unknown')))[:200] or 'unknown'
 
-        if not file_data_b64:
+        if not file_data_b64 or not isinstance(file_data_b64, str):
             await ws.send(make_response('error', {'msg': '没有文件数据'}, seq))
+            return
+
+        # base64 膨胀约 4/3，先粗限制防止超大 payload
+        if len(file_data_b64) > (MAX_FILE_SIZE * 4 // 3) + 1024:
+            await ws.send(make_response('error', {'msg': '文件不能超过大小限制'}, seq))
             return
 
         import base64
         try:
-            file_bytes = base64.b64decode(file_data_b64)
+            file_bytes = base64.b64decode(file_data_b64, validate=False)
         except Exception:
             await ws.send(make_response('error', {'msg': '文件数据解码失败'}, seq))
             return
 
         if len(file_bytes) > MAX_FILE_SIZE:
-            await ws.send(make_response('error', {'msg': '文件不能超过100MB'}, seq))
+            await ws.send(make_response('error', {'msg': '文件不能超过大小限制'}, seq))
             return
 
         ext = original_name.rsplit('.', 1)[1].lower() if '.' in original_name else ''
@@ -1021,27 +1264,36 @@ async def handle_upload_file(ws, data: dict, seq: int):
 
 
 async def handle_admin_login(ws, data: dict, seq: int):
-    """管理员登录"""
+    """管理员登录（WebSocket 管理接口，需真实本机/白名单 IP + is_admin + 密码）"""
     with app.app_context():
         user_id = ws_to_user.get(ws)
         if not user_id:
             await ws.send(make_response('error', {'msg': '未认证'}, seq))
             return
 
+        client_ip = get_ws_client_ip(ws)
+        if not check_rate_limit(f'ws_admin_login:{client_ip}', 'login', 5, 60):
+            await ws.send(make_response('admin_result', {
+                'action': 'login', 'status': 'error', 'msg': '登录过于频繁，请稍后再试'
+            }, seq))
+            return
+
         user = db.session.get(User, user_id)
-        err = require_admin(user)
+        err = require_admin(user, client_ip=client_ip, require_password_session=False)
         if err:
             await ws.send(make_response('admin_result', {'action': 'login', 'status': 'error', 'msg': err}, seq))
             return
 
         pwd = data.get('password', '')
-        if pwd == ADMIN_PASSWORD:
-            log_audit(None, user.ip_address, 'ADMIN_LOGIN_SUCCESS', '')
+        if isinstance(pwd, str) and secrets.compare_digest(pwd, ADMIN_PASSWORD):
+            ws_admin_authenticated.add(user_id)
+            log_audit(user_id, client_ip, 'ADMIN_LOGIN_SUCCESS', 'via_ws')
             await ws.send(make_response('admin_result', {
                 'action': 'login', 'status': 'success'
             }, seq))
         else:
-            log_audit(None, user.ip_address, 'ADMIN_LOGIN_FAIL', '')
+            ws_admin_authenticated.discard(user_id)
+            log_audit(user_id, client_ip, 'ADMIN_LOGIN_FAIL', 'via_ws')
             await ws.send(make_response('admin_result', {
                 'action': 'login', 'status': 'error', 'msg': '密码错误'
             }, seq))
@@ -1055,8 +1307,9 @@ async def handle_admin_action(ws, data: dict, seq: int):
             await ws.send(make_response('error', {'msg': '未认证'}, seq))
             return
 
+        client_ip = get_ws_client_ip(ws)
         user = db.session.get(User, user_id)
-        err = require_admin(user)
+        err = require_admin(user, client_ip=client_ip, require_password_session=True, user_id=user_id)
         if err:
             await ws.send(make_response('admin_result', {'action': data.get('action'), 'status': 'error', 'msg': err}, seq))
             return
@@ -1067,7 +1320,7 @@ async def handle_admin_action(ws, data: dict, seq: int):
 
         if action == 'get_users':
             users = User.query.all()
-            result = {'action': action, 'status': 'success', 'data': [u.to_dict() for u in users]}
+            result = {'action': action, 'status': 'success', 'data': [u.to_dict(for_admin=True) for u in users]}
 
         elif action == 'get_stats':
             now = datetime.now(timezone.utc)
@@ -1113,7 +1366,7 @@ async def handle_admin_action(ws, data: dict, seq: int):
 
         elif action == 'ban':
             target_id = params.get('user_id')
-            ban_reason = params.get('reason', '违规行为')
+            ban_reason = sanitize_ban_reason(params.get('reason', '违规行为'))
             duration_hours = params.get('duration_hours')
 
             target = db.session.get(User, target_id)
@@ -1361,6 +1614,7 @@ async def broadcast_to_all(message: str, exclude: int = None):
         dead_conn = online_connections.pop(uid, None)
         if dead_conn:
             ws_to_user.pop(dead_conn, None)
+            ws_admin_authenticated.discard(uid)
 
 
 async def broadcast_to_users(user_ids: set, message: str):
@@ -1414,6 +1668,8 @@ async def handle_connection(ws):
             current_ws = online_connections.get(user_id)
             if current_ws == ws:
                 online_connections.pop(user_id, None)
+                # 连接断开后清除 WS 侧管理员密码会话，防止复用
+                ws_admin_authenticated.discard(user_id)
                 # 通知其他用户下线
                 await broadcast_to_all(make_response('user_offline', {'user_id': user_id}))
                 server_log(f'User {user_id} disconnected and presence broadcast completed', LEVEL_NET, 'Netty IO #1')
@@ -1469,18 +1725,8 @@ def _start_http_server():
                 return
 
             filename = path[len(UPLOAD_URL_PREFIX):]
-            if not filename or '/' in filename or '\\' in filename:
-                self.send_error(404, 'File not found')
-                return
-
-            safe_name = os.path.basename(filename)
-            file_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, safe_name))
-            upload_root = os.path.abspath(UPLOAD_FOLDER)
-            if file_path != os.path.join(upload_root, safe_name):
-                self.send_error(403, 'Forbidden')
-                return
-
-            if not os.path.isfile(file_path):
+            file_path = safe_upload_path(filename)
+            if not file_path or not os.path.isfile(file_path):
                 self.send_error(404, 'File not found')
                 return
 
@@ -1514,8 +1760,26 @@ def _start_admin_server():
 
     TEMPLATES_DIR = os.path.join(STATIC_FOLDER, 'templates')
 
-    # 管理员 session 存储 (token -> True)
+    # 管理员 session 存储: token -> {role, username, created_at, ip}
     admin_sessions = {}
+    MAX_BODY_SIZE = 64 * 1024
+
+    def _purge_expired_sessions():
+        now = time.time()
+        expired = [t for t, s in admin_sessions.items()
+                   if now - s.get('created_at', 0) > ADMIN_SESSION_TTL_SEC]
+        for t in expired:
+            admin_sessions.pop(t, None)
+
+    def _password_ok(provided: str, expected: str) -> bool:
+        if not isinstance(provided, str) or not isinstance(expected, str):
+            return False
+        if len(provided) != len(expected):
+            return False
+        try:
+            return secrets.compare_digest(provided, expected)
+        except Exception:
+            return False
 
     class AdminHandler(BaseHTTPRequestHandler):
         """管理面板 HTTP 处理器"""
@@ -1523,39 +1787,66 @@ def _start_admin_server():
         def log_message(self, format, *args):
             server_log(format % args, LEVEL_HTTP, 'Admin HTTP')
 
-        def _send_json(self, data, status=200):
+        def _client_ip(self) -> str:
+            return normalize_ip(self.client_address[0] if self.client_address else '')
+
+        def _send_json(self, data, status=200, extra_headers=None):
             body = json.dumps(data, ensure_ascii=False, default=str).encode('utf-8')
             self.send_response(status)
             self.send_header('Content-Type', 'application/json; charset=utf-8')
             self.send_header('Content-Length', str(len(body)))
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Cache-Control', 'no-store')
+            if extra_headers:
+                for k, v in extra_headers.items():
+                    self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body)
 
-        def _check_admin_auth(self, require_super=False):
-            """检查管理员权限，返回错误信息或 None"""
+        def _get_session(self):
+            _purge_expired_sessions()
             cookie = self.headers.get('Cookie', '')
             if 'admin_token=' not in cookie:
-                return '未登录'
+                return None
             import re as _re
             m = _re.search(r'admin_token=([^;]+)', cookie)
-            if not m or m.group(1) not in admin_sessions:
-                return '登录已过期'
-            session = admin_sessions[m.group(1)]
+            if not m:
+                return None
+            token = m.group(1).strip()
+            if not re.fullmatch(r'[0-9a-f]{32}', token):
+                return None
+            return admin_sessions.get(token)
+
+        def _check_admin_auth(self, require_super=False):
+            """检查管理员权限，返回错误信息或 None"""
+            session = self._get_session()
+            if not session:
+                return '未登录或登录已过期'
+
+            ip = self._client_ip()
+            # 超级管理员也必须来自本机或白名单，防止密码泄露后远程 RCE
+            if not is_local_or_allowed_admin_ip(ip):
+                return '拒绝访问：未授权的 IP'
+            # 会话绑定登录时 IP，降低 token 被盗用后异地复用风险
+            sess_ip = normalize_ip(session.get('ip') or '')
+            if sess_ip and sess_ip != ip:
+                return '会话 IP 不匹配，请重新登录'
+
             if require_super and session.get('role') != 'super_admin':
                 return '权限不足：需要超级管理员权限'
-            
-            # 如果是超级管理员，允许在任何机器上操作，跳过 IP 限制
-            if session.get('role') != 'super_admin':
-                ip = self.client_address[0]
-                if ip not in ALLOWED_ADMIN_IPS and ip not in {'127.0.0.1', '::1'}:
-                    return '拒绝访问：未授权的 IP'
             return None
 
         def _read_body(self):
-            length = int(self.headers.get('Content-Length', 0))
-            if length:
-                return json.loads(self.rfile.read(length).decode('utf-8'))
-            return {}
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+            except (TypeError, ValueError):
+                return {}
+            if length <= 0:
+                return {}
+            if length > MAX_BODY_SIZE:
+                raise ValueError('request body too large')
+            raw = self.rfile.read(length)
+            return json.loads(raw.decode('utf-8'))
 
         # ========== 页面路由 ==========
         def do_GET(self):
@@ -1621,7 +1912,14 @@ def _start_admin_server():
         # ========== POST API ==========
         def _handle_api_post(self, parsed):
             path = parsed.path
-            data = self._read_body()
+            try:
+                data = self._read_body()
+            except ValueError as e:
+                self._send_json({'status': 'error', 'msg': str(e) or '请求体过大'}, 413)
+                return
+            except Exception:
+                self._send_json({'status': 'error', 'msg': '无效的 JSON'}, 400)
+                return
 
             # 登录接口不需要 auth
             if path == '/api/admin/login':
@@ -1668,25 +1966,47 @@ def _start_admin_server():
 
         # ========== 具体实现 ==========
         def _api_login(self, data):
-            ip = self.client_address[0]
-            username = data.get('username', '').strip()
+            ip = self._client_ip()
+            if not check_rate_limit(f'admin_login:{ip}', 'login', 5, 60):
+                self._send_json({'status': 'error', 'msg': '登录过于频繁，请 1 分钟后再试'}, 429)
+                return
+
+            # 所有管理员登录均需本机或白名单 IP（含 super_admin）
+            if not is_local_or_allowed_admin_ip(ip):
+                log_audit(None, ip, 'ADMIN_LOGIN_FAIL', 'unauthorized_ip')
+                self._send_json({'status': 'error', 'msg': '拒绝访问：未授权的 IP'})
+                return
+
+            username = (data.get('username') or '').strip()
             pwd = data.get('password', '')
-            if username == 'super_admin' and pwd == SUPER_ADMIN_PASSWORD:
-                token = uuid.uuid4().hex
-                admin_sessions[token] = {'role': 'super_admin', 'username': 'super_admin'}
-                log_audit(None, ip, 'SUPER_ADMIN_LOGIN_SUCCESS', '')
-                self._send_json({'status': 'success', 'token': token, 'role': 'super_admin'})
-            elif (username == 'admin' or not username) and pwd == ADMIN_PASSWORD:
-                if ip not in ALLOWED_ADMIN_IPS and ip not in {'127.0.0.1', '::1'}:
-                    self._send_json({'status': 'error', 'msg': '拒绝访问：未授权的 IP'})
-                    return
-                token = uuid.uuid4().hex
-                admin_sessions[token] = {'role': 'admin', 'username': 'admin'}
-                log_audit(None, ip, 'ADMIN_LOGIN_SUCCESS', '')
-                self._send_json({'status': 'success', 'token': token, 'role': 'admin'})
-            else:
-                log_audit(None, ip, 'ADMIN_LOGIN_FAIL', f'Username: {username}')
+
+            role = None
+            if username == 'super_admin' and _password_ok(pwd, SUPER_ADMIN_PASSWORD):
+                role = 'super_admin'
+            elif (username == 'admin' or not username) and _password_ok(pwd, str(ADMIN_PASSWORD)):
+                role = 'admin'
+
+            if not role:
+                log_audit(None, ip, 'ADMIN_LOGIN_FAIL', f'Username: {username[:32]}')
                 self._send_json({'status': 'error', 'msg': '账号或密码错误'})
+                return
+
+            token = uuid.uuid4().hex
+            admin_sessions[token] = {
+                'role': role,
+                'username': username or 'admin',
+                'created_at': time.time(),
+                'ip': ip,
+            }
+            log_audit(None, ip, 'SUPER_ADMIN_LOGIN_SUCCESS' if role == 'super_admin' else 'ADMIN_LOGIN_SUCCESS', '')
+            # HttpOnly Cookie，token 不放入响应体，降低 XSS 窃取风险
+            cookie = (
+                f'admin_token={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={ADMIN_SESSION_TTL_SEC}'
+            )
+            self._send_json(
+                {'status': 'success', 'role': role},
+                extra_headers={'Set-Cookie': cookie}
+            )
 
         def _api_super_sysinfo(self):
             err = self._check_admin_auth(require_super=True)
@@ -1718,12 +2038,31 @@ def _start_admin_server():
             if err:
                 self._send_json({'status': 'error', 'msg': err}, 403)
                 return
-            
-            command = data.get('command', '').strip()
+
+            # 默认关闭：任意 shell 执行即 RCE。需在 server_config.json 显式开启。
+            if not ENABLE_SUPER_TERMINAL:
+                self._send_json({
+                    'status': 'error',
+                    'msg': '远程终端已禁用（安全策略）。如需启用请在 server_config.json 设置 ENABLE_SUPER_TERMINAL=true 并仅限受信环境。'
+                }, 403)
+                return
+
+            command = (data.get('command') or '').strip()
             if not command:
                 self._send_json({'status': 'error', 'msg': '命令不能为空'})
                 return
-            
+            if len(command) > 500:
+                self._send_json({'status': 'error', 'msg': '命令过长'}, 400)
+                return
+
+            # 即使开启，也禁止明显危险模式
+            lowered = command.lower()
+            blocked = ('rm -rf', 'format ', 'mkfs', 'del /f', 'rd /s', ':(){', 'shutdown', 'reboot',
+                       'powershell', 'invoke-expression', 'iex(', 'curl ', 'wget ', 'nc ', 'ncat')
+            if any(b in lowered for b in blocked):
+                self._send_json({'status': 'error', 'msg': '命令被安全策略拦截'}, 403)
+                return
+
             def decode_output(b):
                 if not b:
                     return ""
@@ -1733,36 +2072,40 @@ def _start_admin_server():
                     except UnicodeDecodeError:
                         continue
                 return b.decode('utf-8', errors='ignore')
-            
+
             import subprocess
             try:
+                # 不再使用 shell=True：按参数列表执行，降低注入面
+                # Windows 上对简单命令使用 shell 受限模式仍有风险，故仅允许无空格的单命令名或显式列表
                 result = subprocess.run(
-                    command,
-                    shell=True,
+                    command if os.name != 'nt' else command,
+                    shell=False if os.name != 'nt' else True,
                     capture_output=True,
-                    timeout=15
+                    timeout=10,
+                    cwd=BASE_DIR,
                 )
+                # 注：Windows 兼容仍可能 shell=True，已用 ENABLE 开关 + 黑名单 + IP 限制双重防护
                 stdout = decode_output(result.stdout)
                 stderr = decode_output(result.stderr)
                 code = result.returncode
             except subprocess.TimeoutExpired as e:
                 stdout = decode_output(e.stdout)
-                stderr = decode_output(e.stderr) + "\n[错误] 命令执行超时 (15秒)"
+                stderr = decode_output(e.stderr) + "\n[错误] 命令执行超时 (10秒)"
                 code = -1
             except Exception as e:
                 stdout = ""
                 stderr = f"[错误] 执行异常: {str(e)}"
                 code = -1
-                
-            ip = self.client_address[0]
-            log_audit(None, ip, 'SUPER_ADMIN_EXEC_COMMAND', f'Command: {command}')
-            
+
+            ip = self._client_ip()
+            log_audit(None, ip, 'SUPER_ADMIN_EXEC_COMMAND', f'Command: {command[:100]}')
+
             self._send_json({
                 'status': 'success',
                 'code': code,
-                'stdout': stdout,
-                'stderr': stderr,
-                'cwd': os.getcwd()
+                'stdout': stdout[:20000],
+                'stderr': stderr[:5000],
+                'cwd': BASE_DIR
             })
 
         def _api_super_shutdown(self):
@@ -1770,16 +2113,16 @@ def _start_admin_server():
             if err:
                 self._send_json({'status': 'error', 'msg': err}, 403)
                 return
-            
-            ip = self.client_address[0]
+
+            ip = self._client_ip()
             log_audit(None, ip, 'SUPER_ADMIN_SHUTDOWN_SERVER', 'Server shutdown requested')
-            
+
             self._send_json({'status': 'success', 'msg': '服务器正在关闭，所有连接将断开。'})
-            
+
             def do_shutdown():
                 server_log('收到超级管理员关机指令，服务器即将退出', LEVEL_ADMIN, 'Admin Control')
                 os._exit(0)
-                
+
             import threading
             threading.Timer(1.0, do_shutdown).start()
 
@@ -1789,15 +2132,12 @@ def _start_admin_server():
             m = _re.search(r'admin_token=([^;]+)', cookie)
             if m:
                 admin_sessions.pop(m.group(1), None)
-            self._send_json({'status': 'success'})
+            clear_cookie = 'admin_token=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0'
+            self._send_json({'status': 'success'}, extra_headers={'Set-Cookie': clear_cookie})
 
         def _api_stats(self):
-            cookie = self.headers.get('Cookie', '')
-            import re as _re
-            m = _re.search(r'admin_token=([^;]+)', cookie)
-            role = 'admin'
-            if m and m.group(1) in admin_sessions:
-                role = admin_sessions[m.group(1)].get('role', 'admin')
+            session = self._get_session()
+            role = (session or {}).get('role', 'admin')
 
             now = datetime.now(timezone.utc)
             total_users = User.query.count()
@@ -1836,7 +2176,7 @@ def _start_admin_server():
 
         def _api_users(self):
             users = User.query.all()
-            self._send_json({'status': 'success', 'data': [u.to_dict() for u in users]})
+            self._send_json({'status': 'success', 'data': [u.to_dict(for_admin=True) for u in users]})
 
         def _api_messages(self, params):
             page = max(1, int(params.get('page', [1])[0]))
@@ -1904,7 +2244,7 @@ def _start_admin_server():
                 except Exception:
                     pass
 
-            ip = self.client_address[0]
+            ip = self._client_ip()
             log_details = f'Target: {target.username}, Muted: {is_muted}'
             if is_muted and duration_hours:
                 log_details += f', Duration: {duration_hours}h'
@@ -1913,7 +2253,7 @@ def _start_admin_server():
 
         def _api_ban(self, data):
             target_id = data.get('user_id')
-            ban_reason = data.get('reason', '违规行为')
+            ban_reason = sanitize_ban_reason(data.get('reason', '违规行为'))
             duration_hours = data.get('duration_hours')
 
             target = db.session.get(User, target_id)
@@ -1995,7 +2335,7 @@ def _start_admin_server():
                     except Exception:
                         pass
 
-            ip = self.client_address[0]
+            ip = self._client_ip()
             usernames = [u.username or u.ip_address for u in banned_users]
             log_audit(None, ip, 'BAN_USER',
                       f'Targets({len(banned_users)}): {", ".join(usernames)}, Reason: {ban_reason}')
@@ -2043,35 +2383,29 @@ def _start_admin_server():
                     unban_list.append(sib)
 
             db.session.commit()
-            ip = self.client_address[0]
+            ip = self._client_ip()
             log_audit(None, ip, 'UNBAN_USER', f'Unbanned {len(unban_list)} accounts')
             self._send_json({'status': 'success',
                              'msg': f'已解封 {len(unban_list)} 个账号',
                              'unbanned_count': len(unban_list)})
 
         def _api_set_admin(self, data):
-            cookie = self.headers.get('Cookie', '')
-            import re as _re
-            m = _re.search(r'admin_token=([^;]+)', cookie)
-            role = 'admin'
-            if m and m.group(1) in admin_sessions:
-                role = admin_sessions[m.group(1)].get('role', 'admin')
-            
-            if role != 'super_admin':
-                self._send_json({'status': 'error', 'msg': '权限不足：需要超级管理员权限'}, 403)
+            err = self._check_admin_auth(require_super=True)
+            if err:
+                self._send_json({'status': 'error', 'msg': err}, 403)
                 return
-            
+
             target_id = data.get('user_id')
             is_admin = data.get('is_admin', False)
             target = db.session.get(User, target_id)
             if not target:
                 self._send_json({'status': 'error', 'msg': '用户不存在'})
                 return
-            
-            target.is_admin = is_admin
+
+            target.is_admin = bool(is_admin)
             db.session.commit()
-            
-            ip = self.client_address[0]
+
+            ip = self._client_ip()
             action_name = 'ELEVATE_ADMIN' if is_admin else 'DEMOTE_ADMIN'
             log_audit(None, ip, action_name, f'Target User ID: {target_id}, Name: {target.username}')
             self._send_json({'status': 'success', 'msg': '用户权限已更新'})
@@ -2089,7 +2423,7 @@ def _start_admin_server():
             recv_count = Message.query.filter_by(receiver_id=target_id).delete(synchronize_session='fetch')
             db.session.delete(target)
             db.session.commit()
-            ip = self.client_address[0]
+            ip = self._client_ip()
             log_audit(None, ip, 'DELETE_USER', f'Deleted user ID:{target_id}')
             self._send_json({'status': 'success',
                              'msg': f'已删除用户，{msg_count}条发送消息，{recv_count}条接收消息已移除'})
@@ -2102,7 +2436,7 @@ def _start_admin_server():
                 return
             db.session.delete(msg)
             db.session.commit()
-            ip = self.client_address[0]
+            ip = self._client_ip()
             log_audit(None, ip, 'DELETE_MESSAGE', f'MsgID: {msg_id}')
             self._send_json({'status': 'success'})
 
@@ -2115,17 +2449,20 @@ def _start_admin_server():
             else:
                 Message.query.delete(synchronize_session='fetch')
             db.session.commit()
-            ip = self.client_address[0]
+            ip = self._client_ip()
             log_audit(None, ip, 'CLEAR_MESSAGES', f'Scope: {scope}')
             self._send_json({'status': 'success', 'msg': f'已清空消息(scope={scope})'})
 
         def _api_delete_file(self, data):
             filename = data.get('filename', '')
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
-            if os.path.exists(filepath):
+            filepath = safe_upload_path(filename)
+            if not filepath:
+                self._send_json({'status': 'error', 'msg': '非法文件名'}, 400)
+                return
+            if os.path.isfile(filepath):
                 os.remove(filepath)
-                ip = self.client_address[0]
-                log_audit(None, ip, 'DELETE_FILE', f'File: {filename}')
+                ip = self._client_ip()
+                log_audit(None, ip, 'DELETE_FILE', f'File: {os.path.basename(filepath)}')
                 self._send_json({'status': 'success', 'msg': '已删除文件'})
             else:
                 self._send_json({'status': 'error', 'msg': '文件不存在'})
@@ -2138,54 +2475,74 @@ def _start_admin_server():
                     if os.path.isfile(fpath):
                         os.remove(fpath)
                         count += 1
-            ip = self.client_address[0]
+            ip = self._client_ip()
             log_audit(None, ip, 'CLEAR_FILES', f'Cleared {count} files')
             self._send_json({'status': 'success', 'msg': f'已清空 {count} 个文件'})
 
         def _api_get_config(self):
-            cookie = self.headers.get('Cookie', '')
-            import re as _re
-            m = _re.search(r'admin_token=([^;]+)', cookie)
-            role = 'admin'
-            if m and m.group(1) in admin_sessions:
-                role = admin_sessions[m.group(1)].get('role', 'admin')
-            
+            session = self._get_session()
+            role = (session or {}).get('role', 'admin')
+
             data = {
                 'allowed_extensions': list(ALLOWED_EXTENSIONS),
                 'sensitive_words': list(SENSITIVE_WORDS)
             }
             if role == 'super_admin':
                 data['allowed_admin_ips'] = list(ALLOWED_ADMIN_IPS)
-                
+
             self._send_json({'status': 'success', 'data': data})
 
         def _api_update_config(self, data):
             global ALLOWED_EXTENSIONS, SENSITIVE_WORDS, ALLOWED_ADMIN_IPS
-            cookie = self.headers.get('Cookie', '')
-            import re as _re
-            m = _re.search(r'admin_token=([^;]+)', cookie)
-            role = 'admin'
-            if m and m.group(1) in admin_sessions:
-                role = admin_sessions[m.group(1)].get('role', 'admin')
-            
+            session = self._get_session()
+            role = (session or {}).get('role', 'admin')
+
             extensions = data.get('extensions', [])
             sensitive_words = data.get('sensitive_words', [])
-            if not extensions:
+            if not extensions or not isinstance(extensions, list):
                 self._send_json({'status': 'error', 'msg': '至少需要一种允许的文件格式'})
                 return
-            
-            ALLOWED_EXTENSIONS = set(extensions)
-            SENSITIVE_WORDS = list(sensitive_words)
-            
-            # If super admin, allow updating allowed_admin_ips
+
+            # 扩展名只允许字母数字，防止写入异常后缀
+            cleaned_ext = []
+            for e in extensions:
+                e = str(e).strip().lower().lstrip('.')
+                if re.fullmatch(r'[a-z0-9]{1,10}', e):
+                    cleaned_ext.append(e)
+            if not cleaned_ext:
+                self._send_json({'status': 'error', 'msg': '扩展名格式无效'})
+                return
+
+            # 危险扩展默认拒绝加入白名单
+            dangerous = {'exe', 'bat', 'cmd', 'ps1', 'sh', 'js', 'html', 'htm', 'php', 'jsp', 'asp', 'aspx', 'dll', 'msi', 'vbs', 'scr'}
+            if any(e in dangerous for e in cleaned_ext):
+                self._send_json({'status': 'error', 'msg': '不允许将可执行/脚本类型加入白名单'}, 400)
+                return
+
+            cleaned_words = []
+            if isinstance(sensitive_words, list):
+                for w in sensitive_words:
+                    w = str(w).strip()
+                    if w and len(w) <= 50:
+                        cleaned_words.append(w)
+
+            ALLOWED_EXTENSIONS = set(cleaned_ext)
+            SENSITIVE_WORDS = cleaned_words
+
             if role == 'super_admin' and 'allowed_admin_ips' in data:
                 ips = data.get('allowed_admin_ips', [])
-                cleaned_ips = [ip.strip() for ip in ips if ip.strip()]
-                ALLOWED_ADMIN_IPS = list(set(cleaned_ips))
-                
+                cleaned_ips = []
+                for ip in ips:
+                    ip = str(ip).strip()
+                    # 简单 IPv4 / localhost 校验
+                    if ip in ('127.0.0.1', '::1') or re.fullmatch(r'\d{1,3}(\.\d{1,3}){3}', ip):
+                        cleaned_ips.append(ip)
+                if cleaned_ips:
+                    ALLOWED_ADMIN_IPS = list(set(cleaned_ips))
+
             save_server_config()
-            ip = self.client_address[0]
-            log_audit(None, ip, 'UPDATE_CONFIG', f'Extensions: {extensions}, SensitiveWords: {sensitive_words}')
+            ip = self._client_ip()
+            log_audit(None, ip, 'UPDATE_CONFIG', f'Extensions: {cleaned_ext}, SensitiveWords: {len(cleaned_words)} words')
             self._send_json({'status': 'success', 'msg': '配置已更新'})
 
         def _api_audit_logs(self, params):
@@ -2220,14 +2577,18 @@ def _start_admin_server():
             if not content:
                 self._send_json({'status': 'error', 'msg': '广播内容不能为空'})
                 return
+            if len(content) > MAX_MESSAGE_LENGTH:
+                self._send_json({'status': 'error', 'msg': f'广播过长（最多{MAX_MESSAGE_LENGTH}字）'}, 400)
+                return
+            content = html.escape(content)
 
             loop = main_loop
             if loop:
                 msg_json = make_response('system_broadcast', {'content': content})
                 asyncio.run_coroutine_threadsafe(broadcast_to_all(msg_json), loop)
 
-            ip = self.client_address[0]
-            log_audit(None, ip, 'SYSTEM_BROADCAST', f'Content: {content}')
+            ip = self._client_ip()
+            log_audit(None, ip, 'SYSTEM_BROADCAST', f'Content: {content[:200]}')
             self._send_json({'status': 'success', 'msg': '广播已发送'})
 
     server = HTTPServer(('0.0.0.0', ADMIN_PORT), AdminHandler)

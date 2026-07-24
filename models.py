@@ -51,20 +51,22 @@ class User(db.Model):
             return False
         return check_password_hash(self.password_hash, password)
 
-    def to_dict(self):
-        return {
+    def to_dict(self, for_admin=False):
+        """序列化用户信息。
+
+        for_admin=False（默认）：面向普通客户端，不暴露 device_token / 设备指纹等可接管账号的字段。
+        for_admin=True：管理后台用，可包含 IP 与设备标识摘要（token 仅前 8 位，防全量泄露）。
+        """
+        data = {
             'id': self.id,
-            'ip_address': self.ip_address,
             'username': self.username,
-            'is_admin': self.is_admin,
+            'is_admin': bool(self.is_admin),
             'admin_role': self.admin_role,
             'is_muted': self.is_muted,
             'is_banned': self.is_banned,
             'ban_reason': self.ban_reason,
             'ban_until': self.ban_until.strftime('%Y-%m-%d %H:%M:%S') if self.ban_until else None,
             'banned_at': self.banned_at.strftime('%Y-%m-%d %H:%M:%S') if self.banned_at else None,
-            'device_fingerprint': self.device_fingerprint,
-            'device_token': self.device_token,
             'mute_until': self.mute_until.strftime('%Y-%m-%d %H:%M:%S') if self.mute_until else None,
             'last_name_change': self.last_name_change.strftime('%Y-%m-%d %H:%M:%S') if self.last_name_change else None,
             'theme_preference': self.theme_preference,
@@ -72,6 +74,17 @@ class User(db.Model):
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             'last_active': self.last_active.strftime('%Y-%m-%d %H:%M:%S')
         }
+        if for_admin:
+            data['ip_address'] = self.ip_address
+            data['device_fingerprint'] = self.device_fingerprint
+            # 仅返回 token 前缀，管理端可关联同设备，但无法用于直接冒充登录
+            data['device_token'] = (self.device_token[:8] + '…') if self.device_token else None
+            data['device_token_prefix'] = self.device_token[:8] if self.device_token else None
+            try:
+                data['ip_history'] = self.ip_history
+            except Exception:
+                data['ip_history'] = '[]'
+        return data
 
 class Message(db.Model):
     __tablename__ = 'message'
@@ -94,10 +107,17 @@ class Message(db.Model):
     receiver = db.relationship('User', foreign_keys=[receiver_id])
 
     def to_dict(self):
+        # 未设置用户名时不回落为 IP，避免把真实 IP 泄露给其他客户端
+        if self.sender and self.sender.username:
+            sender_name = self.sender.username
+        elif self.sender:
+            sender_name = f'用户{self.sender.id}'
+        else:
+            sender_name = '未知用户'
         return {
             'id': self.id,
             'sender_id': self.sender_id,
-            'sender_name': self.sender.username if self.sender.username else self.sender.ip_address,
+            'sender_name': sender_name,
             'sender_avatar': self.sender.avatar if hasattr(self.sender, 'avatar') and self.sender.avatar else 'avatar_1',
             'receiver_id': self.receiver_id,
             'msg_type': self.msg_type,

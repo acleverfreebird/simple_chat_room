@@ -25,9 +25,13 @@
         "fuck"
     ],
     "MAX_FILE_SIZE": 104857600,
-    "MAX_WS_SIZE": 157286400,
+    "MAX_WS_SIZE": 16777216,
     "ALLOWED_ADMIN_IPS": [
         "127.0.0.1",
         "::1"
-    ]
+    ],
+    "ENABLE_SUPER_TERMINAL": false,
+    "MAX_MESSAGE_LENGTH": 4000,
+    "MAX_UPLOAD_CHUNKS": 512,
+    "ADMIN_SESSION_TTL_SEC": 86400
 }
